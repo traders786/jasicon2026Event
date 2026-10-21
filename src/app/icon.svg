@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d9488"/>
+      <stop offset="50%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <!-- Shield Badge -->
+  <path d="M24 4L7 11V22C7 33.2 14.3 43.1 24 46C33.7 43.1 41 33.2 41 22V11L24 4Z" fill="url(#shieldGrad)"/>
+  <path d="M24 6.5L9.5 12.5V22C9.5 31.8 15.7 40.5 24 43.2C32.3 40.5 38.5 31.8 38.5 22V12.5L24 6.5Z" fill="#090d16" fill-opacity="0.85"/>
+  <!-- Surgical / Medical Cross -->
+  <rect x="21" y="14" width="6" height="20" rx="2" fill="url(#goldGrad)"/>
+  <rect x="14" y="21" width="20" height="6" rx="2" fill="url(#goldGrad)"/>
+  <!-- Star / 25th milestone indicator -->
+  <circle cx="24" cy="24" r="2.5" fill="#ffffff"/>
+  <!-- Subtle 'J' Accent -->
+  <path d="M19 14H24V27C24 29.5 22 31 19.5 31C18 31 16.5 30.5 15.5 29.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+</svg>

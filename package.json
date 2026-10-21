@@ -1,0 +1,42 @@
+{
+  "name": "event",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "lint": "eslint",
+    "db:start": "node scripts/db.mjs start",
+    "db:stop": "node scripts/db.mjs stop",
+    "db:status": "node scripts/db.mjs status",
+    "db:seed": "node scripts/seed.mjs",
+    "test": "npx -y tsx scripts/test-registration-scanner.mjs",
+    "test:import": "npx -y tsx scripts/test-import-pipeline.mjs",
+    "test:regression": "npx -y tsx scripts/test-registration-scanner.mjs",
+    "test:e2e": "npx -y tsx scripts/test-e2e.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "jsqr": "^1.4.0",
+    "next": "16.4.2",
+    "qrcode": "^1.5.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.2",
+    "prisma": "^6.19.3",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

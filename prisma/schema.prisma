@@ -1,0 +1,161 @@
+// ==============================================================================
+// EventCheck - Production Database Schema (Prisma ORM)
+// ==============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+  VOLUNTEER
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CANCELLED
+}
+
+enum EntitlementCategory {
+  MEAL
+  SESSION
+}
+
+enum EntitlementStatus {
+  AVAILABLE
+  REDEEMED
+  EXPIRED
+  REVOKED
+}
+
+enum RedemptionResult {
+  SUCCESS
+  ALREADY_REDEEMED
+  INVALID_QR
+  REVOKED
+  ERROR
+}
+
+// System Users (Staff, Scanners, Admins)
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  name         String
+  passwordHash String
+  role         Role            @default(OPERATOR)
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  redemptions  RedemptionLog[]
+
+  @@map("users")
+}
+
+// Real-world human participant
+model Person {
+  id            String              @id @default(uuid())
+  firstName     String
+  lastName      String
+  email         String              @unique
+  phone         String?
+  company       String?
+  jobTitle      String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  registrations EventRegistration[]
+
+  @@map("people")
+}
+
+// Event definition
+model Event {
+  id            String              @id @default(uuid())
+  title         String
+  slug          String              @unique
+  description   String?
+  venue         String
+  startDate     DateTime
+  endDate       DateTime
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  registrations EventRegistration[]
+
+  @@map("events")
+}
+
+// Event Registration linking Person to Event
+// Zero PII in QR tokens: qrTokenHash stores cryptographic SHA-256 digest of random token
+model EventRegistration {
+  id            String             @id @default(uuid())
+  personId      String
+  eventId       String
+  ticketCode    String             @unique // Human-readable ticket reference e.g. EC-2026-0001
+  qrTokenHash   String             @unique // SHA-256 hash of random bearer token
+  status        RegistrationStatus @default(CONFIRMED)
+  checkedInAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  person       Person          @relation(fields: [personId], references: [id], onDelete: Restrict)
+  event        Event           @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  entitlements Entitlement[]
+  redemptions  RedemptionLog[]
+
+  @@unique([personId, eventId])
+  @@index([eventId, status])
+  @@map("event_registrations")
+}
+
+// 19 Entitlements per registration: 9 Meals + 10 Sessions
+// Uses optimistic concurrency locking (version field) and atomic redemption
+model Entitlement {
+  id             String              @id @default(uuid())
+  registrationId String
+  category       EntitlementCategory
+  code           String // e.g. MEAL_DAY1_LUNCH, SESSION_KEYNOTE_1
+  title          String // Human readable title
+  status         EntitlementStatus   @default(AVAILABLE)
+  redeemedAt     DateTime?
+  version        Int                 @default(0) // Concurrency version
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  redemptions  RedemptionLog[]
+
+  @@unique([registrationId, code])
+  @@index([registrationId, category])
+  @@index([code, status])
+  @@map("entitlements")
+}
+
+// Concurrency-safe audit trail for all scanning / redemption actions
+model RedemptionLog {
+  id             String           @id @default(uuid())
+  registrationId String
+  entitlementId  String?
+  operatorId     String?
+  result         RedemptionResult
+  scannedAt      DateTime         @default(now())
+  deviceInfo     String?
+  ipAddress      String?
+  notes          String?
+
+  registration EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  entitlement  Entitlement?      @relation(fields: [entitlementId], references: [id], onDelete: SetNull)
+  operator     User?             @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+
+  @@index([registrationId, scannedAt])
+  @@index([entitlementId])
+  @@map("redemption_logs")
+}
