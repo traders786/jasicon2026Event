@@ -58,9 +58,9 @@ export default function AuditPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff' }}>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-heading)' }}>
             Redemption Audit History
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
@@ -68,9 +68,23 @@ export default function AuditPage() {
           </p>
         </div>
 
-        <button onClick={() => void refreshLogs()} className="btn btn-secondary btn-sm">
+        <button onClick={() => void refreshLogs()} className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}>
           ↻ Refresh Logs
         </button>
+      </div>
+
+      <div
+        className="mobile-only"
+        style={{
+          fontSize: '0.78rem',
+          color: 'var(--text-dim)',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '0 4px',
+        }}
+      >
+        <span>👉</span>
+        <span>Swipe table horizontally to inspect all scan logs &amp; outcome status</span>
       </div>
 
       <div className="card" style={{ padding: '0' }}>
@@ -102,9 +116,9 @@ export default function AuditPage() {
                     <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                       {new Date(log.scannedAt).toLocaleString()}
                     </td>
-                    <td style={{ fontWeight: 600, color: '#fff' }}>{log.participantName}</td>
+                    <td style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{log.participantName}</td>
                     <td>
-                      <code style={{ background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: '4px' }}>
+                      <code style={{ background: 'var(--bg-subtle)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
                         {log.ticketCode}
                       </code>
                     </td>

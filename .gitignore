@@ -50,3 +50,7 @@ next-env.d.ts
 .pgdata/
 /.pgdata/
 *.log
+
+# User uploaded media
+public/uploads/*
+!public/uploads/.gitkeep

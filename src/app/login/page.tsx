@@ -36,7 +36,11 @@ export default function LoginPage() {
 
       setSuccessMsg(`Authenticated as ${data.user.name} (${data.user.role}). Redirecting...`);
       setTimeout(() => {
-        router.push('/');
+        if (data.user.role === 'VENDOR') {
+          router.push('/scanner');
+        } else {
+          router.push('/');
+        }
         router.refresh();
       }, 700);
     } catch (err: unknown) {
@@ -54,29 +58,32 @@ export default function LoginPage() {
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '64px',
-            height: '64px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, #0d9488 0%, #0284c7 50%, #6366f1 100%)',
-            boxShadow: '0 0 20px rgba(13, 148, 136, 0.4)',
+            width: '72px',
+            height: '72px',
+            borderRadius: '20px',
+            background: '#ffffff',
+            boxShadow: '0 8px 24px rgba(13, 98, 94, 0.12)',
+            border: '1px solid #dce7e4',
             marginBottom: '1rem',
+            overflow: 'hidden',
+            padding: '6px',
           }}
         >
-          <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
-            <path d="M24 4L7 11V22C7 33.2 14.3 43.1 24 46C33.7 43.1 41 33.2 41 22V11L24 4Z" fill="#090d16" fillOpacity="0.5"/>
-            <rect x="21" y="14" width="6" height="20" rx="2" fill="#fbbf24"/>
-            <rect x="14" y="21" width="20" height="6" rx="2" fill="#fbbf24"/>
-            <circle cx="24" cy="24" r="2.5" fill="#ffffff"/>
-          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/evently-logo.jpg"
+            alt="Evently Logo"
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
         </div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff' }}>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-heading)' }}>
           JASICON 2026
         </h1>
-        <p style={{ color: '#38bdf8', fontSize: '0.85rem', fontWeight: 600, marginTop: '2px', letterSpacing: '0.5px' }}>
+        <p style={{ color: 'var(--primary)', fontSize: '0.85rem', fontWeight: 700, marginTop: '2px', letterSpacing: '0.5px' }}>
           25TH ANNUAL STATE CONFERENCE • ASI JHARKHAND
         </p>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '6px' }}>
-          Staff Desk, Scanner & Check-In Portal
+          Staff Desk, Scanner &amp; Check-In Portal
         </p>
       </div>
 

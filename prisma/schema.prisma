@@ -15,6 +15,7 @@ datasource db {
 enum Role {
   ADMIN
   OPERATOR
+  VENDOR
   VOLUNTEER
 }
 
@@ -69,6 +70,7 @@ model Person {
   phone         String?
   company       String?
   jobTitle      String?
+  photoUrl      String?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   registrations EventRegistration[]

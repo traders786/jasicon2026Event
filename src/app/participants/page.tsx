@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { ParticipantProfileView } from '@/components/ParticipantProfileView';
 
 interface ParticipantItem {
   id: string;
@@ -16,6 +17,7 @@ interface ParticipantItem {
     phone: string | null;
     company: string | null;
     jobTitle: string | null;
+    photoUrl: string | null;
   };
   event: {
     title: string;
@@ -79,6 +81,13 @@ interface ReconcilePreviewData {
   diffPreview: ReconcileDiffItem[];
 }
 
+interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export default function ParticipantsPage() {
   const [participants, setParticipants] = useState<ParticipantItem[]>([]);
   const [searchInput, setSearchInput] = useState('');
@@ -86,8 +95,77 @@ export default function ParticipantsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Pagination state
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 1,
+  });
+
+  // Role detection
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+
+  // Selected participant for profile modal
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
+  const [modalInitialTab, setModalInitialTab] = useState<'details' | 'badge'>('details');
+
   // Placeholder detection state
   const [placeholderCount, setPlaceholderCount] = useState<number>(0);
+
+  // Fetch current user role once
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((d) => {
+        if (d?.user?.role) setCurrentUserRole(d.user.role);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Super Admin delete target state
+  const [deleteTarget, setDeleteTarget] = useState<ParticipantItem | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteParticipant = async () => {
+    if (!deleteTarget) return;
+    const targetId = deleteTarget.id;
+    setDeletingId(targetId);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/registrations/${targetId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete registration');
+
+      // Optimistically remove immediately from table rows in-memory (no full page reload)
+      setParticipants((prev) => prev.filter((p) => p.id !== targetId));
+      setPagination((prev) => ({
+        ...prev,
+        total: Math.max(0, prev.total - 1),
+      }));
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : 'Deletion failed');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Close profile modal on Escape
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedParticipantId(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // Import Modal State
   const [showImportModal, setShowImportModal] = useState(false);
@@ -110,6 +188,7 @@ export default function ParticipantsPage() {
 
   // Reconciliation Modal State
   const [showReconcileModal, setShowReconcileModal] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [reconcileFile, setReconcileFile] = useState<File | null>(null);
   const [reconcileSheet, setReconcileSheet] = useState<string>('');
   const [reconcileLoading, setReconcileLoading] = useState(false);
@@ -119,23 +198,39 @@ export default function ParticipantsPage() {
   const [reconcileError, setReconcileError] = useState<string | null>(null);
   const reconcileFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch placeholder count once on mount or when refreshKey changes (decoupled from search)
+  useEffect(() => {
+    fetch('/api/registrations/reconcile')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((recData) => {
+        if (recData && typeof recData.placeholderCount === 'number') {
+          setPlaceholderCount(recData.placeholderCount);
+        }
+      })
+      .catch(() => {});
+  }, [refreshKey]);
+
+  // Fetch paginated participants
   useEffect(() => {
     let isMounted = true;
-    const fetchAll = async () => {
+    if (participants.length === 0) {
+      setLoading(true);
+    }
+    const fetchRegistrations = async () => {
       try {
-        const url = appliedQuery ? `/api/registrations?q=${encodeURIComponent(appliedQuery)}` : '/api/registrations';
-        const [res, recRes] = await Promise.all([
-          fetch(url),
-          fetch('/api/registrations/reconcile'),
-        ]);
+        const queryParams = new URLSearchParams({
+          page: String(page),
+          limit: String(pageSize),
+        });
+        if (appliedQuery) {
+          queryParams.set('q', appliedQuery);
+        }
+        const res = await fetch(`/api/registrations?${queryParams.toString()}`);
         const data = await res.json();
         if (isMounted) {
           setParticipants(data.registrations || []);
-        }
-        if (recRes.ok) {
-          const recData = await recRes.json();
-          if (isMounted) {
-            setPlaceholderCount(recData.placeholderCount || 0);
+          if (data.pagination) {
+            setPagination(data.pagination);
           }
         }
       } catch (err) {
@@ -147,21 +242,29 @@ export default function ParticipantsPage() {
       }
     };
 
-    void fetchAll();
+    void fetchRegistrations();
     return () => {
       isMounted = false;
     };
-  }, [appliedQuery, refreshKey]);
+  }, [appliedQuery, page, pageSize, refreshKey]);
+
+  // Instant auto-search as the user types (250ms debounce), resets page to 1
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedQuery(searchInput.trim());
+      setPage(1);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setAppliedQuery(searchInput.trim());
   };
 
   const handleClear = () => {
     setSearchInput('');
-    setLoading(true);
     setAppliedQuery('');
   };
 
@@ -360,7 +463,7 @@ export default function ParticipantsPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff' }}>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-heading)' }}>
             Event Participants
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
@@ -368,46 +471,50 @@ export default function ParticipantsPage() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <a
-            href="/api/registrations/export"
-            download
-            className="btn btn-secondary"
-            title="Download CSV report of attendees & redemption counts"
-          >
-            <span>📊</span> Export CSV
-          </a>
-          <button
-            onClick={() => {
-              setShowImportModal(true);
-              setImportResult(null);
-              setImportError(null);
-              setImportPreview(null);
-            }}
-            className="btn btn-secondary"
-          >
-            <span>📥</span> Import Spreadsheet
-          </button>
+        <div className="header-actions-group">
+          {currentUserRole !== 'OPERATOR' && (
+            <>
+              <a
+                href="/api/registrations/export"
+                download
+                className="btn btn-secondary"
+                title="Download CSV report of attendees & redemption counts"
+              >
+                <span>📊</span> Export CSV
+              </a>
+              <button
+                onClick={() => {
+                  setShowImportModal(true);
+                  setImportResult(null);
+                  setImportError(null);
+                  setImportPreview(null);
+                }}
+                className="btn btn-secondary"
+              >
+                <span>📥</span> Import Spreadsheet
+              </button>
 
-          {placeholderCount > 0 && (
-            <button
-              onClick={() => {
-                setShowReconcileModal(true);
-                setReconcileError(null);
-                setReconcileSuccess(null);
-                setReconcilePreview(null);
-              }}
-              style={{
-                background: 'rgba(245, 158, 11, 0.15)',
-                border: '1px solid rgba(245, 158, 11, 0.4)',
-                color: '#fbbf24',
-                fontWeight: 600,
-              }}
-              className="btn"
-              title="Safe reconciliation to correct placeholder attendee records from spreadsheet"
-            >
-              <span>⚡</span> Reconcile ({placeholderCount} Placeholders)
-            </button>
+              {placeholderCount > 0 && (
+                <button
+                  onClick={() => {
+                    setShowReconcileModal(true);
+                    setReconcileError(null);
+                    setReconcileSuccess(null);
+                    setReconcilePreview(null);
+                  }}
+                  style={{
+                    background: 'var(--warning-bg)',
+                    border: '1px solid var(--warning-border)',
+                    color: 'var(--warning)',
+                    fontWeight: 700,
+                  }}
+                  className="btn"
+                  title="Safe reconciliation to correct placeholder attendee records from spreadsheet"
+                >
+                  <span>⚡</span> Reconcile ({placeholderCount})
+                </button>
+              )}
+            </>
           )}
 
           <Link href="/register" className="btn btn-primary">
@@ -416,75 +523,111 @@ export default function ParticipantsPage() {
         </div>
       </div>
 
-      {/* Placeholder Banner Alert */}
-      {placeholderCount > 0 && (
+      {/* Placeholder Banner Alert - Super Admin only */}
+      {placeholderCount > 0 && !bannerDismissed && currentUserRole !== 'OPERATOR' && (
         <div
           style={{
-            background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.08) 100%)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: '12px',
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '14px',
             padding: '1rem 1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '1rem',
+            boxShadow: '0 2px 8px rgba(180, 83, 9, 0.06)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flex: 1, minWidth: '280px' }}>
+            <span style={{ fontSize: '1.6rem', flexShrink: 0 }}>⚠️</span>
             <div>
-              <div style={{ fontWeight: 700, color: '#fbbf24', fontSize: '0.95rem' }}>
+              <div style={{ fontWeight: 800, color: '#b45309', fontSize: '0.95rem' }}>
                 {placeholderCount} Placeholder Records Detected
               </div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              <div style={{ fontSize: '0.82rem', color: '#92400e', marginTop: '2px', lineHeight: 1.4 }}>
                 Previous import stored records as &ldquo;Guest Participant&rdquo;. You can safely restore real names, phone numbers, and districts from your original spreadsheet without affecting ticket codes, QR codes, or entitlements.
               </div>
             </div>
           </div>
-          <button
-            onClick={() => {
-              setShowReconcileModal(true);
-              setReconcileError(null);
-              setReconcileSuccess(null);
-              setReconcilePreview(null);
-            }}
-            className="btn btn-secondary btn-sm"
-            style={{ borderColor: 'rgba(245, 158, 11, 0.5)', color: '#fbbf24' }}
-          >
-            Reconcile Records Now
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            <button
+              onClick={() => {
+                setShowReconcileModal(true);
+                setReconcileError(null);
+                setReconcileSuccess(null);
+                setReconcilePreview(null);
+              }}
+              className="btn btn-secondary btn-sm"
+              style={{ borderColor: '#f59e0b', color: '#b45309', fontWeight: 700 }}
+            >
+              Reconcile Records Now
+            </button>
+            <button
+              onClick={() => setBannerDismissed(true)}
+              className="btn btn-secondary btn-sm"
+              style={{ color: '#92400e', padding: '4px 10px' }}
+              title="Dismiss notice"
+            >
+              ✕ Dismiss
+            </button>
+          </div>
         </div>
       )}
 
       {/* Filter and Search Bar */}
-      <div className="card" style={{ padding: '1rem' }}>
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.75rem' }}>
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Search by attendee name, email, company, or ticket code..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
-          <button type="submit" className="btn btn-secondary">
-            Search
-          </button>
-          {searchInput && (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleClear}
-            >
-              Clear
+      <div className="card" style={{ padding: '0.85rem 1.25rem' }}>
+        <form onSubmit={handleSearch} className="search-bar-form">
+          <div style={{ position: 'relative', flex: 1 }}>
+            <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', fontSize: '1rem', pointerEvents: 'none' }}>
+              🔍
+            </span>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Search attendee by name, ticket code, phone, email, or hospital..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              style={{ width: '100%', paddingLeft: '2.5rem' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button type="submit" className="btn btn-primary" style={{ padding: '0.65rem 1.4rem' }}>
+              Search
             </button>
-          )}
+            {searchInput && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleClear}
+                style={{ padding: '0.65rem 1.2rem' }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </form>
+      </div>
+
+      {/* Mobile Horizontal Scroll Hint */}
+      <div
+        className="mobile-only"
+        style={{
+          display: 'none',
+          fontSize: '0.78rem',
+          color: 'var(--text-dim)',
+          padding: '0 4px',
+          alignItems: 'center',
+          gap: '6px',
+        }}
+      >
+        <span>👉</span>
+        <span>Swipe table horizontally to view all columns • Tap any attendee to view profile &amp; badge</span>
       </div>
 
       {/* Table */}
       <div className="card" style={{ padding: '0' }}>
-        {loading ? (
+        {loading && participants.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
             Loading participants...
           </div>
@@ -493,7 +636,8 @@ export default function ParticipantsPage() {
             No registered attendees found matching the filter.
           </div>
         ) : (
-          <div className="table-wrap" style={{ border: 'none', borderRadius: '14px' }}>
+          <>
+            <div className="table-wrap" style={{ border: 'none', borderRadius: '14px' }}>
             <table className="data-table">
               <thead>
                 <tr>
@@ -504,42 +648,75 @@ export default function ParticipantsPage() {
                   <th>Meals (9 Total)</th>
                   <th>Sessions (10 Total)</th>
                   <th>Registered</th>
+                  <th style={{ textAlign: 'right', paddingRight: '1.25rem', minWidth: '185px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {participants.map((p) => {
                   const isPlaceholder = p.person.name === 'Guest Participant' || p.person.email.includes('@attendee.eventcheck.local');
+                  const initials = p.person.name
+                    .split(' ')
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((n) => n[0]?.toUpperCase())
+                    .join('');
+
                   return (
-                    <tr key={p.id}>
+                    <tr
+                      key={p.id}
+                      onClick={() => {
+                        setModalInitialTab('details');
+                        setSelectedParticipantId(p.id);
+                      }}
+                      className="participant-row-clickable"
+                      title="Click to view full attendee profile, QR code, and print badge"
+                    >
                       <td>
-                        <code style={{ fontWeight: 700, color: 'var(--primary-light)', background: 'rgba(99, 102, 241, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                        <code style={{ fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-subtle)', padding: '3px 8px', borderRadius: '6px' }}>
                           {p.ticketCode}
                         </code>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontWeight: 600, color: '#fff' }}>{p.person.name}</span>
-                          {isPlaceholder && (
-                            <span
-                              style={{
-                                fontSize: '0.7rem',
-                                padding: '1px 6px',
-                                borderRadius: '4px',
-                                background: 'rgba(245, 158, 11, 0.15)',
-                                color: '#f59e0b',
-                                border: '1px solid rgba(245, 158, 11, 0.3)',
-                              }}
-                            >
-                              Placeholder
-                            </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {p.person.photoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={p.person.photoUrl}
+                              alt={p.person.name}
+                              className="attendee-mini-avatar"
+                            />
+                          ) : (
+                            <div className="attendee-mini-avatar-placeholder">
+                              {initials || 'EC'}
+                            </div>
                           )}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          {p.person.jobTitle ? `${p.person.jobTitle} • ` : ''}{p.person.company || 'Independent'}
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontWeight: 700, color: 'var(--text-heading)' }}>{p.person.name}</span>
+                              {isPlaceholder && (
+                                <span
+                                  style={{
+                                    fontSize: '0.7rem',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    background: 'var(--warning-bg)',
+                                    color: 'var(--warning)',
+                                    border: '1px solid var(--warning-border)',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  Placeholder
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              {p.person.jobTitle ? `${p.person.jobTitle} • ` : ''}{p.person.company || 'Independent'}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>{p.person.email}</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 500 }}>{p.person.email}</div>
                         {p.person.phone && (
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{p.person.phone}</div>
                         )}
@@ -548,21 +725,21 @@ export default function ParticipantsPage() {
                         {p.status === 'CHECKED_IN' ? (
                           <span className="badge badge-available">CHECKED-IN</span>
                         ) : (
-                          <span className="badge badge-pending">CONFIRMED</span>
+                          <span className="badge badge-confirmed">CONFIRMED</span>
                         )}
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f59e0b' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#059669' }}>
                             {p.entitlementsSummary.mealsRedeemed} / {p.entitlementsSummary.mealsTotal}
                           </span>
-                          <div style={{ width: '60px', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px' }}>
+                          <div style={{ width: '60px', height: '6px', background: 'var(--bg-mint)', borderRadius: '9999px', overflow: 'hidden' }}>
                             <div
                               style={{
                                 width: `${(p.entitlementsSummary.mealsRedeemed / p.entitlementsSummary.mealsTotal) * 100}%`,
                                 height: '100%',
-                                backgroundColor: '#f59e0b',
-                                borderRadius: '3px',
+                                backgroundColor: '#059669',
+                                borderRadius: '9999px',
                               }}
                             />
                           </div>
@@ -570,16 +747,16 @@ export default function ParticipantsPage() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#06b6d4' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)' }}>
                             {p.entitlementsSummary.sessionsRedeemed} / {p.entitlementsSummary.sessionsTotal}
                           </span>
-                          <div style={{ width: '60px', height: '5px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px' }}>
+                          <div style={{ width: '60px', height: '6px', background: 'var(--bg-mint)', borderRadius: '9999px', overflow: 'hidden' }}>
                             <div
                               style={{
                                 width: `${(p.entitlementsSummary.sessionsRedeemed / p.entitlementsSummary.sessionsTotal) * 100}%`,
                                 height: '100%',
-                                backgroundColor: '#06b6d4',
-                                borderRadius: '3px',
+                                backgroundColor: 'var(--primary)',
+                                borderRadius: '9999px',
                               }}
                             />
                           </div>
@@ -588,51 +765,221 @@ export default function ParticipantsPage() {
                       <td style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
                         {new Date(p.createdAt).toLocaleDateString()}
                       </td>
+                      <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: 'nowrap', textAlign: 'right', paddingRight: '1.25rem' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalInitialTab('details');
+                              setSelectedParticipantId(p.id);
+                            }}
+                            className="action-btn-profile"
+                            title="Open attendee profile and QR code"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                              <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <span>Profile</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalInitialTab('badge');
+                              setSelectedParticipantId(p.id);
+                            }}
+                            className="action-btn-badge"
+                            title="Print attendee badge with QR code"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="4" width="18" height="16" rx="3"></rect>
+                              <circle cx="9" cy="10" r="2"></circle>
+                              <line x1="15" y1="8" x2="17" y2="8"></line>
+                              <line x1="15" y1="12" x2="17" y2="12"></line>
+                              <line x1="7" y1="16" x2="17" y2="16"></line>
+                            </svg>
+                            <span>Badge</span>
+                          </button>
+                          {currentUserRole === 'ADMIN' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeleteError(null);
+                                setDeleteTarget(p);
+                              }}
+                              className="action-btn-delete"
+                              title="Permanently delete attendee registration (Super Admin)"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                              </svg>
+                              <span>Delete</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+
+          {/* Snappy Pagination Controls */}
+          {pagination.total > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '1rem',
+                padding: '0.9rem 1.25rem',
+                borderTop: '1px solid var(--border-color)',
+                background: '#fafbfc',
+                borderBottomLeftRadius: '16px',
+                borderBottomRightRadius: '16px',
+              }}
+            >
+              <div style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>
+                Showing{' '}
+                <strong style={{ color: 'var(--text-heading)' }}>
+                  {Math.min((page - 1) * pageSize + 1, pagination.total)}
+                </strong>{' '}
+                to{' '}
+                <strong style={{ color: 'var(--text-heading)' }}>
+                  {Math.min(page * pageSize, pagination.total)}
+                </strong>{' '}
+                of{' '}
+                <strong style={{ color: 'var(--text-heading)' }}>{pagination.total}</strong> attendees
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  <span>Rows:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setPage(1);
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      background: 'white',
+                      fontSize: '0.82rem',
+                      color: 'var(--text-main)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    opacity: page <= 1 ? 0.45 : 1,
+                    cursor: page <= 1 ? 'not-allowed' : 'pointer',
+                    padding: '5px 12px',
+                    fontWeight: 600,
+                  }}
+                >
+                  « Prev
+                </button>
+
+                {/* Page Pill Buttons */}
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                    // Window centered around current page
+                    let pageNum = i + 1;
+                    if (pagination.totalPages > 5) {
+                      if (page > 3) {
+                        pageNum = page - 2 + i;
+                        if (pageNum > pagination.totalPages) {
+                          pageNum = pagination.totalPages - 4 + i;
+                        }
+                      }
+                    }
+                    const isCurrent = pageNum === page;
+                    return (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => setPage(pageNum)}
+                        style={{
+                          minWidth: '32px',
+                          height: '32px',
+                          padding: '0 6px',
+                          borderRadius: '8px',
+                          border: isCurrent ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                          background: isCurrent ? 'var(--primary)' : 'white',
+                          color: isCurrent ? 'white' : 'var(--text-main)',
+                          fontWeight: isCurrent ? 800 : 600,
+                          fontSize: '0.82rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={page >= pagination.totalPages}
+                  onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    opacity: page >= pagination.totalPages ? 0.45 : 1,
+                    cursor: page >= pagination.totalPages ? 'not-allowed' : 'pointer',
+                    padding: '5px 12px',
+                    fontWeight: 600,
+                  }}
+                >
+                  Next »
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
 
       {/* ======================================================== */}
       {/* BULK IMPORT MODAL (CSV & EXCEL) */}
       {/* ======================================================== */}
       {showImportModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.8)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '1rem',
-          }}
-        >
+        <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
           <div
-            className="card"
+            className="modal-card modal-card-large"
+            onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: '750px',
-              width: '100%',
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border-color)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
+              padding: '1.5rem',
             }}
           >
             {/* Modal Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-heading)' }}>
                   Bulk Import Participants
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Supports <strong>.xlsx</strong>, <strong>.xls</strong>, and <strong>.csv</strong> spreadsheets. Each imported attendee receives 19 entitlements & a zero-PII QR code.
+                  Supports <strong>.xlsx</strong>, <strong>.xls</strong>, and <strong>.csv</strong> spreadsheets. Each imported attendee receives 19 entitlements &amp; a zero-PII QR code.
                 </p>
               </div>
               <button
@@ -647,10 +994,10 @@ export default function ParticipantsPage() {
             {/* Template Download Section */}
             <div
               style={{
-                background: 'rgba(255, 255, 255, 0.03)',
+                background: 'var(--bg-subtle)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: '10px',
-                padding: '0.85rem 1rem',
+                borderRadius: '12px',
+                padding: '0.95rem 1.15rem',
                 marginBottom: '1rem',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -660,7 +1007,7 @@ export default function ParticipantsPage() {
               }}
             >
               <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Download Standard Template</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-heading)' }}>Download Standard Template</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
                   Includes required and optional columns with a clearly labelled sample row.
                 </div>
@@ -955,34 +1302,18 @@ export default function ParticipantsPage() {
       {/* SAFE RECONCILIATION MODAL */}
       {/* ======================================================== */}
       {showReconcileModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '1rem',
-          }}
-        >
+        <div className="modal-overlay" onClick={() => setShowReconcileModal(false)}>
           <div
-            className="card"
+            className="modal-card modal-card-large"
+            onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: '850px',
-              width: '100%',
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border-color)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
+              padding: '1.5rem',
             }}
           >
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>⚡</span> Safe Participant Reconciliation
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
@@ -1219,9 +1550,172 @@ export default function ParticipantsPage() {
                 </div>
               </div>
             )}
+            </div>
+          </div>
+        )}
+
+      {/* Participant Profile & Badge Modal */}
+      {selectedParticipantId && (
+        <div
+          className="profile-modal-overlay"
+          onClick={() => setSelectedParticipantId(null)}
+        >
+          <div
+            className="profile-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ParticipantProfileView
+              participantId={selectedParticipantId}
+              initialTab={modalInitialTab}
+              onClose={() => setSelectedParticipantId(null)}
+              onUpdate={() => setRefreshKey((k) => k + 1)}
+              onDelete={(deletedId) => {
+                // Optimistically remove without table flash or full page reload
+                setParticipants((prev) => prev.filter((p) => p.id !== deletedId));
+                setPagination((prev) => ({
+                  ...prev,
+                  total: Math.max(0, prev.total - 1),
+                }));
+                setSelectedParticipantId(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Super Admin Delete Confirmation Modal from Table */}
+      {deleteTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={() => {
+            if (!deletingId) setDeleteTarget(null);
+          }}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card, #ffffff)',
+              color: 'var(--text-heading, #0f172a)',
+              borderRadius: '16px',
+              maxWidth: '480px',
+              width: '100%',
+              padding: '1.75rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid var(--border-subtle, #e2e8f0)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  background: '#fee2e2',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.4rem',
+                  flexShrink: 0,
+                }}
+              >
+                ⚠️
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#dc2626' }}>
+                  Delete Registration?
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted, #64748b)' }}>
+                  Super Admin Permanent Deletion
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-body, #334155)', lineHeight: 1.5, marginBottom: '1rem' }}>
+              Are you sure you want to permanently delete registration for{' '}
+              <strong>{deleteTarget.person.name}</strong> (<code>{deleteTarget.ticketCode}</code>)?
+            </p>
+
+            <div
+              style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                color: '#991b1b',
+                marginBottom: '1.25rem',
+                lineHeight: 1.4,
+              }}
+            >
+              <strong>Notice:</strong> This action is irreversible. It will permanently remove:
+              <ul style={{ margin: '6px 0 0 1rem', padding: 0 }}>
+                <li>All 19 meal &amp; session entitlements</li>
+                <li>QR code ticket pass</li>
+                <li>Redemption audit logs</li>
+              </ul>
+            </div>
+
+            {deleteError && (
+              <div
+                style={{
+                  background: '#fef2f2',
+                  color: '#dc2626',
+                  padding: '0.6rem 0.8rem',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  marginBottom: '1rem',
+                }}
+              >
+                ❌ {deleteError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={Boolean(deletingId)}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={Boolean(deletingId)}
+                onClick={() => void handleDeleteParticipant()}
+                style={{
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  border: 'none',
+                  padding: '0.55rem 1.15rem',
+                  borderRadius: '8px',
+                  cursor: deletingId ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                {deletingId ? 'Deleting...' : 'Yes, Permanently Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 }
+

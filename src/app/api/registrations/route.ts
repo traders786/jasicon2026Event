@@ -33,23 +33,36 @@ export async function GET(request: Request) {
       ];
     }
 
-    const registrations = await prisma.eventRegistration.findMany({
-      where: whereClause,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        person: true,
-        event: true,
-        entitlements: {
-          select: {
-            id: true,
-            category: true,
-            code: true,
-            title: true,
-            status: true,
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+    const allParam = searchParams.get('all');
+
+    const isPaginated = allParam !== 'true';
+    const page = Math.max(1, parseInt(pageParam || '1', 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(limitParam || '25', 10) || 25));
+    const skip = (page - 1) * limit;
+
+    const [totalCount, registrations] = await Promise.all([
+      prisma.eventRegistration.count({ where: whereClause }),
+      prisma.eventRegistration.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        ...(isPaginated ? { skip, take: limit } : {}),
+        include: {
+          person: true,
+          event: true,
+          entitlements: {
+            select: {
+              id: true,
+              category: true,
+              code: true,
+              title: true,
+              status: true,
+            },
           },
         },
-      },
-    });
+      }),
+    ]);
 
     const items = registrations.map((r) => {
       const meals = r.entitlements.filter((e) => e.category === 'MEAL');
@@ -67,6 +80,7 @@ export async function GET(request: Request) {
           phone: r.person.phone,
           company: r.person.company,
           jobTitle: r.person.jobTitle,
+          photoUrl: r.person.photoUrl,
         },
         event: {
           id: r.event.id,
@@ -83,7 +97,15 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ registrations: items });
+    return NextResponse.json({
+      registrations: items,
+      pagination: {
+        page: isPaginated ? page : 1,
+        limit: isPaginated ? limit : totalCount,
+        total: totalCount,
+        totalPages: isPaginated ? Math.max(1, Math.ceil(totalCount / limit)) : 1,
+      },
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to retrieve registrations';
     return NextResponse.json({ error: message }, { status: 500 });

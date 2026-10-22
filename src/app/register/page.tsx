@@ -93,7 +93,7 @@ export default function RegisterPage() {
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff' }}>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-heading)' }}>
           Attendee Registration
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
@@ -126,7 +126,7 @@ export default function RegisterPage() {
             </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-grid-2">
             <div className="form-group">
               <label className="form-label">First Name *</label>
               <input
@@ -151,7 +151,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-grid-2">
             <div className="form-group">
               <label className="form-label">Email Address *</label>
               <input
@@ -175,7 +175,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div className="form-grid-2">
             <div className="form-group">
               <label className="form-label">Organization / Company</label>
               <input
@@ -198,7 +198,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+          <div className="header-actions-group" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
             <button type="submit" disabled={loading} className="btn btn-primary" style={{ minWidth: '180px' }}>
               {loading ? 'Registering...' : 'Register Attendee & Issue Badge'}
             </button>
@@ -213,7 +213,7 @@ export default function RegisterPage() {
             <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span className="badge badge-available">Registration Issued</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', marginTop: '4px' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-heading)', marginTop: '4px' }}>
                   {createdBadge.registration.person.name}
                 </h3>
               </div>
@@ -226,15 +226,16 @@ export default function RegisterPage() {
               </button>
             </div>
 
-            <div style={{ padding: '1.75rem', textAlign: 'center', background: '#090d16' }}>
+            <div style={{ padding: '1.75rem', textAlign: 'center', background: 'var(--bg-subtle)' }}>
               {/* QR Code */}
               <div
                 style={{
                   display: 'inline-block',
                   padding: '12px',
                   background: '#fff',
-                  borderRadius: '12px',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.4)',
+                  borderRadius: '16px',
+                  boxShadow: 'var(--shadow-md)',
+                  border: '2px solid var(--primary)',
                 }}
               >
                 <Image
@@ -251,7 +252,7 @@ export default function RegisterPage() {
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
                   Ticket Code
                 </div>
-                <code style={{ fontSize: '1.35rem', fontWeight: 800, color: '#818cf8', letterSpacing: '0.05em' }}>
+                <code style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)', letterSpacing: '0.05em' }}>
                   {createdBadge.registration.ticketCode}
                 </code>
               </div>
@@ -260,8 +261,9 @@ export default function RegisterPage() {
                 style={{
                   marginTop: '1.25rem',
                   padding: '0.85rem',
-                  background: 'rgba(255, 255, 255, 0.04)',
-                  borderRadius: '8px',
+                  background: '#ffffff',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '10px',
                   textAlign: 'left',
                 }}
               >
@@ -271,7 +273,7 @@ export default function RegisterPage() {
                 <code
                   style={{
                     fontSize: '0.8rem',
-                    color: '#34d399',
+                    color: 'var(--accent)',
                     wordBreak: 'break-all',
                     display: 'block',
                     marginTop: '4px',
@@ -281,7 +283,7 @@ export default function RegisterPage() {
                 </code>
               </div>
 
-              <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                 <a
                   href="/scanner"
                   className="btn btn-primary btn-sm"

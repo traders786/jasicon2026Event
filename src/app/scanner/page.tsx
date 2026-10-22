@@ -56,6 +56,21 @@ interface LookupResult {
   };
 }
 
+const AUTHORIZED_STATIONS = [
+  { code: 'MEAL_D1_BREAKFAST', label: 'Day 1: Breakfast Buffet (08:00 - 09:30)', category: 'MEAL', icon: '☕' },
+  { code: 'MEAL_D1_LUNCH', label: 'Day 1: Executive Lunch (12:30 - 14:00)', category: 'MEAL', icon: '🍽️' },
+  { code: 'MEAL_D1_DINNER', label: 'Day 1: Welcome Gala Dinner (19:00 - 21:30)', category: 'MEAL', icon: '🍷' },
+  { code: 'MEAL_D2_BREAKFAST', label: 'Day 2: Breakfast Buffet (08:00 - 09:30)', category: 'MEAL', icon: '☕' },
+  { code: 'MEAL_D2_LUNCH', label: 'Day 2: Executive Lunch (12:30 - 14:00)', category: 'MEAL', icon: '🍽️' },
+  { code: 'MEAL_D2_DINNER', label: 'Day 2: Networking Banquet (19:00 - 21:30)', category: 'MEAL', icon: '🥂' },
+  { code: 'MEAL_D3_BREAKFAST', label: 'Day 3: Breakfast Buffet (08:00 - 09:30)', category: 'MEAL', icon: '☕' },
+  { code: 'MEAL_D3_LUNCH', label: 'Day 3: Farewell Lunch (12:30 - 14:00)', category: 'MEAL', icon: '🍽️' },
+  { code: 'MEAL_D3_DINNER', label: 'Day 3: Closing Dinner (19:00 - 21:00)', category: 'MEAL', icon: '🍲' },
+  { code: 'SES_01_KEYNOTE', label: 'Session 01: Keynote & Opening Ceremony', category: 'SESSION', icon: '🎙️' },
+  { code: 'SES_07_WORKSHOP_A', label: 'Session 07: Hands-On Microservices Lab', category: 'SESSION', icon: '💻' },
+  { code: 'SES_08_WORKSHOP_B', label: 'Session 08: Distributed Consensus Workshop', category: 'SESSION', icon: '🔬' },
+];
+
 export default function ScannerPage() {
   const [tokenInput, setTokenInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -63,19 +78,62 @@ export default function ScannerPage() {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
   const [redeemingCode, setRedeemingCode] = useState<string | null>(null);
 
-  // Mobile Camera Scanner State
+  // User Role & Vendor Station State
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>('');
+  const [stationMode, setStationMode] = useState<boolean>(true);
+  const [selectedStationCode, setSelectedStationCode] = useState<string>('MEAL_D1_LUNCH');
+  const [stationTally, setStationTally] = useState<number>(0);
+  const [stationResult, setStationResult] = useState<{
+    status: 'SUCCESS' | 'ALREADY_REDEEMED' | 'INVALID' | 'ERROR';
+    message: string;
+    participantName?: string;
+    ticketCode?: string;
+    stationTitle?: string;
+  } | null>(null);
+
+  const stationModeRef = useRef<boolean>(true);
+  const selectedStationCodeRef = useRef<string>('MEAL_D1_LUNCH');
+
+  useEffect(() => {
+    stationModeRef.current = stationMode;
+  }, [stationMode]);
+
+  useEffect(() => {
+    selectedStationCodeRef.current = selectedStationCode;
+  }, [selectedStationCode]);
+
+  // Load user role
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((d) => {
+        if (d?.authenticated && d.user) {
+          setCurrentUserRole(d.user.role);
+          setCurrentUserName(d.user.name);
+          if (d.user.role === 'VENDOR') {
+            setStationMode(true);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Camera Scanner State
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanLoopActive = useRef<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Synthesize instant feedback beep for mobile scanning
+  // High pitch chime for successful scan
   const playBeep = useCallback(() => {
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -91,9 +149,26 @@ export default function ScannerPage() {
       gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.15);
-    } catch {
-      // Audio autoplay restrictions may ignore if silent
-    }
+    } catch {}
+  }, []);
+
+  // Low buzz warning for duplicates/errors
+  const playWarningBeep = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const audioCtx = new AudioCtx();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.22, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.35);
+    } catch {}
   }, []);
 
   // Quick preset test tokens
@@ -140,6 +215,84 @@ export default function ScannerPage() {
     }
   }, [tokenInput]);
 
+  const handleStationRedeem = useCallback(
+    async (token: string, stationCode: string) => {
+      const rawToken = token.trim();
+      if (!rawToken) {
+        setFeedback({ type: 'warning', message: 'Please enter or scan a valid QR badge or ticket code.' });
+        return;
+      }
+
+      setLoading(true);
+      setStationResult(null);
+      setFeedback(null);
+      setData(null);
+
+      try {
+        const res = await fetch('/api/scan/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            qrToken: rawToken,
+            entitlementCode: stationCode,
+            deviceInfo: `${currentUserName || 'Staff'} Station Scanner`,
+          }),
+        });
+
+        const resData = await res.json();
+        const stationDef = AUTHORIZED_STATIONS.find((s) => s.code === stationCode);
+
+        if (res.ok && resData.success) {
+          playBeep();
+          if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            try {
+              navigator.vibrate(120);
+            } catch {}
+          }
+          setStationTally((prev) => prev + 1);
+          setStationResult({
+            status: 'SUCCESS',
+            message: resData.message || 'Access Granted! Entitlement Claimed.',
+            participantName: resData.participant?.name || 'Attendee',
+            ticketCode: resData.participant?.ticketCode || '',
+            stationTitle: stationDef?.label || stationCode,
+          });
+        } else if (res.status === 409 || resData.result === 'ALREADY_REDEEMED') {
+          playWarningBeep();
+          if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            try {
+              navigator.vibrate([100, 80, 100]);
+            } catch {}
+          }
+          setStationResult({
+            status: 'ALREADY_REDEEMED',
+            message: resData.message || 'DUPLICATE ATTEMPT: Already redeemed earlier.',
+            participantName: resData.participant?.name || 'Attendee',
+            ticketCode: resData.participant?.ticketCode || '',
+            stationTitle: stationDef?.label || stationCode,
+          });
+        } else {
+          playWarningBeep();
+          setStationResult({
+            status: 'INVALID',
+            message: resData.error || resData.message || 'Invalid QR code or ticket reference.',
+            stationTitle: stationDef?.label || stationCode,
+          });
+        }
+      } catch (err: unknown) {
+        playWarningBeep();
+        setStationResult({
+          status: 'ERROR',
+          message: err instanceof Error ? err.message : 'Network error during redemption.',
+          stationTitle: stationCode,
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentUserName, playBeep, playWarningBeep]
+  );
+
   const stopCamera = useCallback(() => {
     scanLoopActive.current = false;
     if (streamRef.current) {
@@ -150,12 +303,18 @@ export default function ScannerPage() {
       });
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setTorchOn(false);
     setTorchSupported(false);
     setCameraActive(false);
+    setCameraLoading(false);
   }, []);
 
-  // Universal QR scan loop powered by jsQR + BarcodeDetector fallback
+  const facingModeRef = useRef<'environment' | 'user'>('environment');
+
+  // Universal QR scan loop powered by native BarcodeDetector + jsQR fallback
   const startScanLoop = useCallback(() => {
     let detector: BarcodeDetectorInstance | null = null;
     if (typeof window !== 'undefined' && 'BarcodeDetector' in window && window.BarcodeDetector) {
@@ -177,7 +336,7 @@ export default function ScannerPage() {
       if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0) {
         let detectedCode: string | null = null;
 
-        // 1. Try native BarcodeDetector if available
+        // 1. Try hardware-accelerated BarcodeDetector if available
         if (detector) {
           try {
             const barcodes = await detector.detect(video);
@@ -185,15 +344,14 @@ export default function ScannerPage() {
               detectedCode = barcodes[0].rawValue;
             }
           } catch {
-            // Fallback to jsQR below
+            // Fallback to jsQR
           }
         }
 
-        // 2. Universal jsQR decoder (reliable on 100% of devices including iOS Safari)
+        // 2. Universal jsQR decoder
         if (!detectedCode && canvasRef.current) {
           try {
             const canvas = canvasRef.current;
-            // Downscale to 640px max dimension for 60fps performance on mobile CPUs
             const maxDim = 640;
             let w = video.videoWidth;
             let h = video.videoHeight;
@@ -231,9 +389,13 @@ export default function ScannerPage() {
               navigator.vibrate(120);
             } catch {}
           }
-          playBeep();
           stopCamera();
-          await handleLookup(detectedCode);
+          if (stationModeRef.current && selectedStationCodeRef.current) {
+            await handleStationRedeem(detectedCode, selectedStationCodeRef.current);
+          } else {
+            playBeep();
+            await handleLookup(detectedCode);
+          }
           return;
         }
       }
@@ -244,85 +406,141 @@ export default function ScannerPage() {
     };
 
     requestAnimationFrame(scanFrame);
-  }, [handleLookup, playBeep, stopCamera]);
+  }, [handleLookup, handleStationRedeem, playBeep, stopCamera]);
 
-  const startCamera = async (mode: 'environment' | 'user' = facingMode) => {
+  // Robust stream attachment to HTML video element
+  const attachStreamToVideo = useCallback((video: HTMLVideoElement | null, stream: MediaStream | null) => {
+    if (!video || !stream) return;
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('webkit-playsinline', 'true');
+    video.muted = true;
+
+    const playVideo = () => {
+      video.play().catch(() => {});
+    };
+
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      playVideo();
+    } else {
+      video.onloadedmetadata = playVideo;
+    }
+  }, []);
+
+  // Callback ref that immediately attaches stream when video node mounts
+  const videoElementRef = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    if (node && streamRef.current) {
+      attachStreamToVideo(node, streamRef.current);
+    }
+  }, [attachStreamToVideo]);
+
+  // Start Camera with multi-tiered constraint fallback
+  const startCamera = useCallback(async (mode?: 'environment' | 'user') => {
+    const targetMode = mode || facingModeRef.current;
+    facingModeRef.current = targetMode;
+    setFacingMode(targetMode);
+
     setCameraError(null);
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError('Camera API is not supported in this browser. Please ensure you are opening over HTTPS (Cloudflare) or localhost.');
+    setCameraLoading(true);
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera API is not supported in this browser. Please ensure you are opening over HTTPS or localhost.');
+      setCameraLoading(false);
       return;
     }
 
-    try {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
+    // Stop previous tracks cleanly to release camera lock
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        try { track.stop(); } catch {}
+      });
+      streamRef.current = null;
+    }
 
-      let stream: MediaStream;
+    let stream: MediaStream | null = null;
+
+    try {
+      // 1. Preferred facingMode with ideal HD resolution
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: targetMode },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+    } catch {
       try {
-        // Preferred mobile rear camera with ideal HD
+        // 2. Simple facingMode constraint
         stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: mode },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
+          video: { facingMode: targetMode },
           audio: false,
         });
       } catch {
         try {
-          // Relaxed constraints fallback
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: mode },
-            audio: false,
-          });
-        } catch {
-          // Any available camera fallback
+          // 3. Fallback to any available camera device (desktop/laptop webcams)
           stream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: false,
           });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : 'Camera access error';
+          setCameraError(`${msg}. Please check camera permissions in your browser.`);
+          setCameraActive(false);
+          setCameraLoading(false);
+          return;
         }
       }
+    }
 
-      streamRef.current = stream;
+    if (!stream) {
+      setCameraError('Could not initialize camera stream.');
+      setCameraActive(false);
+      setCameraLoading(false);
+      return;
+    }
 
-      // Check if flashlight / torch is supported
+    streamRef.current = stream;
+
+    // Detect actual facing mode of the acquired track
+    const track = stream.getVideoTracks()[0];
+    if (track) {
+      const settings = track.getSettings?.();
+      if (settings?.facingMode && (settings.facingMode === 'user' || settings.facingMode === 'environment')) {
+        facingModeRef.current = settings.facingMode;
+        setFacingMode(settings.facingMode);
+      }
+      // Check torch capability
       try {
-        const track = stream.getVideoTracks()[0];
-        const capabilities = track?.getCapabilities?.() as (MediaTrackCapabilities & { torch?: boolean }) | undefined;
+        const capabilities = track.getCapabilities?.() as (MediaTrackCapabilities & { torch?: boolean }) | undefined;
         setTorchSupported(Boolean(capabilities?.torch));
       } catch {
         setTorchSupported(false);
       }
-
-      setCameraActive(true);
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.setAttribute('webkit-playsinline', 'true');
-        videoRef.current.muted = true;
-        await videoRef.current.play().catch(() => {});
-      }
-
-      scanLoopActive.current = true;
-      startScanLoop();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Camera access error';
-      setCameraError(`${msg}. Please grant camera permissions in your mobile browser settings.`);
-      setCameraActive(false);
     }
-  };
 
-  const toggleFacingMode = () => {
-    const next = facingMode === 'environment' ? 'user' : 'environment';
-    setFacingMode(next);
-    if (cameraActive) {
-      void startCamera(next);
+    setCameraActive(true);
+    setCameraLoading(false);
+
+    // Immediately attach stream if video ref is available
+    if (videoRef.current) {
+      attachStreamToVideo(videoRef.current, stream);
     }
-  };
 
+    scanLoopActive.current = true;
+    startScanLoop();
+  }, [attachStreamToVideo, startScanLoop]);
+
+  // Flipping between rear and front camera
+  const toggleFacingMode = useCallback(async () => {
+    const nextMode: 'environment' | 'user' = facingModeRef.current === 'environment' ? 'user' : 'environment';
+    await startCamera(nextMode);
+  }, [startCamera]);
+
+  // Toggle torch / flashlight
   const toggleTorch = async () => {
     const track = streamRef.current?.getVideoTracks()[0];
     if (track && 'applyConstraints' in track) {
@@ -335,6 +553,19 @@ export default function ScannerPage() {
       } catch {}
     }
   };
+
+  // Automatic camera initialization once on mount
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (hasMountedRef.current) return;
+    hasMountedRef.current = true;
+
+    void startCamera('environment');
+
+    return () => {
+      stopCamera();
+    };
+  }, [startCamera, stopCamera]);
 
   // Universal photo decoding using jsQR
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -398,12 +629,6 @@ export default function ScannerPage() {
     }
   };
 
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, [stopCamera]);
-
   const handleRedeem = async (entitlementCode: string) => {
     if (!tokenInput) return;
 
@@ -453,32 +678,252 @@ export default function ScannerPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1100px', margin: '0 auto' }}>
-      {/* Title */}
+      {/* Header Title */}
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff' }}>
-          QR Scanner & Entitlement Redemption Station
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-heading)' }}>
+          {currentUserRole === 'VENDOR' ? 'Vendor Station Scanner' : 'QR Scanner & Entitlement Station'}
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
-          Scan participant QR badge to verify check-in and atomically redeem meals and session passes.
+          {currentUserRole === 'VENDOR'
+            ? 'Scan attendee QR badge to instantly redeem meals and kits at your assigned counter.'
+            : 'Scan attendee QR badge with camera to verify registration and atomically claim meals and session passes.'}
         </p>
       </div>
+
+      {/* Station Configuration & Mode Selector */}
+      <div
+        className="card"
+        style={{
+          border: '1.5px solid var(--border-color)',
+          background: 'linear-gradient(to right, #f8fafc, #ffffff)',
+          padding: '1.15rem 1.35rem',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div
+              style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
+                background: 'var(--primary)',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.35rem',
+                flexShrink: 0,
+                boxShadow: '0 4px 10px rgba(13, 98, 94, 0.2)',
+              }}
+            >
+              🏢
+            </div>
+            <div>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {currentUserRole === 'VENDOR' ? 'Your Assigned Counter' : 'Operating Counter'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+                <select
+                  value={selectedStationCode}
+                  onChange={(e) => {
+                    setSelectedStationCode(e.target.value);
+                    setStationResult(null);
+                  }}
+                  style={{
+                    padding: '7px 14px',
+                    borderRadius: '8px',
+                    border: '1.5px solid var(--primary)',
+                    background: 'white',
+                    color: 'var(--text-heading)',
+                    fontSize: '0.92rem',
+                    fontWeight: 700,
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <optgroup label="🍽️ Conference Meal Counters">
+                    {AUTHORIZED_STATIONS.filter((s) => s.category === 'MEAL').map((st) => (
+                      <option key={st.code} value={st.code}>
+                        {st.icon} {st.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🎙️ Scientific Sessions & Workshops">
+                    {AUTHORIZED_STATIONS.filter((s) => s.category === 'SESSION').map((st) => (
+                      <option key={st.code} value={st.code}>
+                        {st.icon} {st.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Live Station Tally */}
+            <div
+              style={{
+                padding: '6px 14px',
+                borderRadius: '9999px',
+                background: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                color: '#065f46',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>✅</span>
+              <span>{stationTally} Claimed This Shift</span>
+            </div>
+
+            {/* Toggle Station Auto-Scan vs Universal for Staff */}
+            {currentUserRole !== 'VENDOR' && (
+              <button
+                type="button"
+                onClick={() => setStationMode((prev) => !prev)}
+                className="btn btn-secondary btn-sm"
+                style={{
+                  borderColor: stationMode ? 'var(--primary)' : 'var(--border-color)',
+                  color: stationMode ? 'var(--primary)' : 'var(--text-muted)',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                }}
+              >
+                {stationMode ? '⚡ Fast Auto-Claim Mode' : '🔍 Inspection Mode'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Giant High-Visibility Station Status Feedback */}
+      {stationResult && (
+        <div
+          style={{
+            borderRadius: '16px',
+            padding: '1.5rem 1.75rem',
+            color: 'white',
+            background:
+              stationResult.status === 'SUCCESS'
+                ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+                : stationResult.status === 'ALREADY_REDEEMED'
+                ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
+                : 'linear-gradient(135deg, #d97706 0%, #b45309 100%)',
+            boxShadow:
+              stationResult.status === 'SUCCESS'
+                ? '0 10px 25px -5px rgba(5, 150, 105, 0.35)'
+                : stationResult.status === 'ALREADY_REDEEMED'
+                ? '0 10px 25px -5px rgba(220, 38, 38, 0.35)'
+                : '0 10px 25px -5px rgba(217, 119, 6, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1.25rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div
+              style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '2rem',
+                flexShrink: 0,
+              }}
+            >
+              {stationResult.status === 'SUCCESS' ? '✓' : stationResult.status === 'ALREADY_REDEEMED' ? '⚠️' : '✕'}
+            </div>
+            <div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.02em' }}>
+                {stationResult.status === 'SUCCESS'
+                  ? 'ACCESS GRANTED'
+                  : stationResult.status === 'ALREADY_REDEEMED'
+                  ? 'ALREADY CLAIMED'
+                  : 'INVALID TOKEN'}
+              </div>
+              <div style={{ fontSize: '0.98rem', fontWeight: 600, opacity: 0.95, marginTop: '2px' }}>
+                {stationResult.stationTitle}
+              </div>
+              {stationResult.participantName && (
+                <div style={{ fontSize: '0.88rem', opacity: 0.88, marginTop: '4px' }}>
+                  Attendee: <strong>{stationResult.participantName}</strong>{' '}
+                  {stationResult.ticketCode ? `• Ticket: ${stationResult.ticketCode}` : ''}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setStationResult(null);
+                if (!cameraActive) void startCamera(facingMode);
+              }}
+              style={{
+                background: 'white',
+                color:
+                  stationResult.status === 'SUCCESS'
+                    ? '#059669'
+                    : stationResult.status === 'ALREADY_REDEEMED'
+                    ? '#dc2626'
+                    : '#d97706',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '10px',
+                fontWeight: 800,
+                fontSize: '0.92rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              }}
+            >
+              ▶ Scan Next Attendee
+            </button>
+            <button
+              type="button"
+              onClick={() => setStationResult(null)}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                border: 'none',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                fontWeight: 700,
+                fontSize: '0.92rem',
+                cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Scanner Input Card */}
       <div className="card">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-              Scan QR Badge or Enter Ticket Code:
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <label style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+              Live Camera Feed or Manual Code Entry:
             </label>
 
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 className={cameraActive ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
-                onClick={() => (cameraActive ? stopCamera() : void startCamera())}
+                onClick={() => (cameraActive ? stopCamera() : void startCamera(facingMode))}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                <span>{cameraActive ? '⏹ Stop Camera' : '📷 Mobile Camera Scanner'}</span>
+                <span>{cameraActive ? '⏹ Pause Camera' : '📷 Start Camera'}</span>
               </button>
 
               <button
@@ -487,7 +932,7 @@ export default function ScannerPage() {
                 onClick={() => photoInputRef.current?.click()}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                <span>📁 Snap / Upload Photo</span>
+                <span>📁 Upload Image</span>
               </button>
               <input
                 type="file"
@@ -501,24 +946,45 @@ export default function ScannerPage() {
           </div>
 
           {/* Camera Viewfinder Overlay */}
-          {cameraActive && (
+          {(cameraActive || cameraLoading) && (
             <div
               style={{
                 position: 'relative',
-                background: '#020617',
-                borderRadius: '12px',
+                background: '#041715',
+                borderRadius: '16px',
                 overflow: 'hidden',
                 border: '2px solid var(--primary)',
+                minHeight: '260px',
+                boxShadow: 'var(--shadow-md)',
               }}
             >
+              {cameraLoading && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    fontSize: '0.95rem',
+                    fontWeight: 600,
+                    background: 'rgba(4, 23, 21, 0.85)',
+                    zIndex: 2,
+                  }}
+                >
+                  <span style={{ marginRight: '8px' }}>🔄</span> Connecting camera stream...
+                </div>
+              )}
+
               <video
-                ref={videoRef}
+                ref={videoElementRef}
                 autoPlay
                 playsInline
                 muted
                 style={{
                   width: '100%',
-                  maxHeight: '360px',
+                  maxHeight: '380px',
                   objectFit: 'cover',
                   display: 'block',
                 }}
@@ -537,14 +1003,21 @@ export default function ScannerPage() {
               >
                 <div
                   style={{
-                    width: '220px',
-                    height: '220px',
-                    border: '2px dashed rgba(99, 102, 241, 0.85)',
-                    borderRadius: '16px',
-                    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.45)',
+                    width: '230px',
+                    height: '230px',
+                    border: '2px dashed rgba(5, 150, 105, 0.85)',
+                    borderRadius: '20px',
+                    boxShadow: '0 0 0 9999px rgba(8, 30, 28, 0.45)',
                     position: 'relative',
                   }}
                 >
+                  {/* Targeting corner markers */}
+                  <div style={{ position: 'absolute', top: '-2px', left: '-2px', width: '20px', height: '20px', borderTop: '4px solid #10b981', borderLeft: '4px solid #10b981', borderTopLeftRadius: '18px' }} />
+                  <div style={{ position: 'absolute', top: '-2px', right: '-2px', width: '20px', height: '20px', borderTop: '4px solid #10b981', borderRight: '4px solid #10b981', borderTopRightRadius: '18px' }} />
+                  <div style={{ position: 'absolute', bottom: '-2px', left: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #10b981', borderLeft: '4px solid #10b981', borderBottomLeftRadius: '18px' }} />
+                  <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #10b981', borderRight: '4px solid #10b981', borderBottomRightRadius: '18px' }} />
+
+                  {/* Scanning beam line */}
                   <div
                     style={{
                       position: 'absolute',
@@ -552,8 +1025,8 @@ export default function ScannerPage() {
                       left: '0',
                       right: '0',
                       height: '2px',
-                      background: 'linear-gradient(90deg, transparent, #38bdf8, transparent)',
-                      boxShadow: '0 0 8px #38bdf8',
+                      background: 'linear-gradient(90deg, transparent, #10b981, transparent)',
+                      boxShadow: '0 0 10px #10b981',
                     }}
                   />
                 </div>
@@ -569,30 +1042,39 @@ export default function ScannerPage() {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  background: 'rgba(15, 23, 42, 0.85)',
-                  backdropFilter: 'blur(8px)',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                  background: 'rgba(255, 255, 255, 0.94)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '8px 14px',
+                  borderRadius: '9999px',
+                  boxShadow: '0 4px 15px rgba(0, 0, 0, 0.12)',
                 }}
               >
-                <span style={{ fontSize: '0.8rem', color: '#fff', fontWeight: 600 }}>
-                  Point camera at attendee QR badge
-                </span>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#059669', display: 'inline-block', boxShadow: '0 0 6px #059669' }} />
+                  <span style={{ fontSize: '0.82rem', color: 'var(--text-heading)', fontWeight: 700 }}>
+                    {facingMode === 'environment' ? 'Rear Camera Active' : 'Front Camera Active'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {torchSupported && (
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
                       onClick={toggleTorch}
                       title="Toggle flashlight"
+                      style={{ padding: '4px 12px', fontSize: '0.78rem' }}
                     >
                       {torchOn ? '🔦 Torch On' : '💡 Torch'}
                     </button>
                   )}
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={toggleFacingMode}
+                    className="btn btn-primary btn-sm"
+                    onClick={() => void toggleFacingMode()}
+                    style={{ padding: '4px 14px', fontSize: '0.78rem' }}
                   >
                     🔄 Flip Camera
                   </button>
@@ -600,6 +1082,7 @@ export default function ScannerPage() {
                     type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={stopCamera}
+                    style={{ padding: '4px 12px', fontSize: '0.78rem' }}
                   >
                     ✕ Close
                   </button>
@@ -611,54 +1094,115 @@ export default function ScannerPage() {
           {cameraError && (
             <div
               style={{
-                padding: '0.75rem 1rem',
-                borderRadius: '8px',
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                color: '#f87171',
-                fontSize: '0.85rem',
+                padding: '0.85rem 1.15rem',
+                borderRadius: '12px',
+                background: 'var(--danger-bg)',
+                border: '1px solid var(--danger-border)',
+                color: 'var(--danger)',
+                fontSize: '0.88rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
               }}
             >
-              {cameraError}
+              <div>
+                <strong>Camera Notice:</strong> {cameraError}
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => void startCamera(facingMode)}
+                style={{ fontSize: '0.78rem' }}
+              >
+                Retry Camera
+              </button>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div className="scanner-input-group">
             <input
               type="text"
               className="form-input"
-              placeholder="Scan QR code or enter ticket code (e.g. EC-2026-0008 or ec_tok_...)"
+              placeholder={
+                stationMode
+                  ? 'Scan QR or type Ticket Code (e.g. EC-2026-0008) to redeem at counter'
+                  : 'Scan QR code or enter ticket code (e.g. EC-2026-0008 or ec_tok_...)'
+              }
               value={tokenInput}
               onChange={(e) => setTokenInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
-              style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (stationMode) {
+                    void handleStationRedeem(tokenInput, selectedStationCode);
+                  } else {
+                    void handleLookup();
+                  }
+                }
+              }}
+              style={{ fontFamily: 'monospace' }}
             />
-            <button
-              onClick={() => handleLookup()}
-              disabled={loading}
-              className="btn btn-primary"
-              style={{ minWidth: '150px' }}
-            >
-              {loading ? 'Verifying...' : 'Verify Attendee'}
-            </button>
+            {stationMode ? (
+              <button
+                type="button"
+                onClick={() => void handleStationRedeem(tokenInput, selectedStationCode)}
+                disabled={loading || !tokenInput.trim()}
+                className="btn btn-primary"
+                style={{ fontWeight: 800, whiteSpace: 'nowrap' }}
+              >
+                {loading ? 'Claiming...' : 'Redeem at Station'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handleLookup()}
+                disabled={loading || !tokenInput.trim()}
+                className="btn btn-primary"
+                style={{ fontWeight: 800, whiteSpace: 'nowrap' }}
+              >
+                {loading ? 'Verifying...' : 'Verify Attendee'}
+              </button>
+            )}
+
+            {stationMode && currentUserRole !== 'VENDOR' && (
+              <button
+                type="button"
+                onClick={() => void handleLookup()}
+                disabled={loading || !tokenInput.trim()}
+                className="btn btn-secondary"
+                style={{ whiteSpace: 'nowrap' }}
+                title="View full attendee profile & all 19 entitlements"
+              >
+                Inspect All
+              </button>
+            )}
           </div>
 
-          {/* Quick presets for local testing */}
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-              Quick Test Presets:
-            </span>
-            {sampleAttendees.map((sample, idx) => (
-              <button
-                key={idx}
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleLookup(sample.token)}
-              >
-                {sample.name}
-              </button>
-            ))}
-          </div>
+          {/* Quick presets for local testing (Hidden for Vendors in production) */}
+          {currentUserRole !== 'VENDOR' && (
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                Quick Presets:
+              </span>
+              {sampleAttendees.map((sample, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    if (stationMode) {
+                      void handleStationRedeem(sample.token, selectedStationCode);
+                    } else {
+                      void handleLookup(sample.token);
+                    }
+                  }}
+                >
+                  {sample.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -667,7 +1211,7 @@ export default function ScannerPage() {
         <div
           style={{
             padding: '1rem 1.25rem',
-            borderRadius: '10px',
+            borderRadius: '12px',
             fontSize: '0.95rem',
             fontWeight: 600,
             display: 'flex',
@@ -675,22 +1219,22 @@ export default function ScannerPage() {
             gap: '0.75rem',
             backgroundColor:
               feedback.type === 'success'
-                ? 'rgba(16, 185, 129, 0.15)'
+                ? 'var(--success-bg)'
                 : feedback.type === 'warning'
-                ? 'rgba(245, 158, 11, 0.15)'
-                : 'rgba(244, 63, 94, 0.15)',
+                ? 'var(--warning-bg)'
+                : 'var(--danger-bg)',
             color:
               feedback.type === 'success'
-                ? '#34d399'
+                ? 'var(--success)'
                 : feedback.type === 'warning'
-                ? '#fbbf24'
-                : '#f87171',
+                ? 'var(--warning)'
+                : 'var(--danger)',
             border: `1px solid ${
               feedback.type === 'success'
-                ? 'rgba(16, 185, 129, 0.3)'
+                ? 'var(--success-border)'
                 : feedback.type === 'warning'
-                ? 'rgba(245, 158, 11, 0.3)'
-                : 'rgba(244, 63, 94, 0.3)'
+                ? 'var(--warning-border)'
+                : 'var(--danger-border)'
             }`,
           }}
         >
@@ -699,8 +1243,8 @@ export default function ScannerPage() {
         </div>
       )}
 
-      {/* Lookup Participant Details & Entitlement Grid */}
-      {data && (
+      {/* Lookup Participant Details & Entitlement Grid (Admins & Desk Staff only) */}
+      {data && currentUserRole !== 'VENDOR' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Attendee Profile Badge */}
           <div
@@ -711,7 +1255,7 @@ export default function ScannerPage() {
               justifyContent: 'space-between',
               flexWrap: 'wrap',
               gap: '1.5rem',
-              borderLeft: '4px solid var(--primary)',
+              borderLeft: '5px solid var(--primary)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -719,20 +1263,21 @@ export default function ScannerPage() {
                 style={{
                   width: '56px',
                   height: '56px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(135deg, #0d625e 0%, #059669 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '1.5rem',
                   fontWeight: 800,
                   color: '#fff',
+                  boxShadow: '0 4px 12px rgba(13, 98, 94, 0.2)',
                 }}
               >
                 {data.person.name.charAt(0)}
               </div>
               <div>
-                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#fff' }}>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-heading)' }}>
                   {data.person.name}
                 </h2>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
@@ -744,10 +1289,10 @@ export default function ScannerPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: 700 }}>
                   Ticket Reference
                 </div>
-                <code style={{ fontSize: '1.1rem', fontWeight: 700, color: '#818cf8' }}>
+                <code style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary)' }}>
                   {data.ticketCode}
                 </code>
               </div>
@@ -763,16 +1308,16 @@ export default function ScannerPage() {
 
           {/* 9 Meals Entitlement Section */}
           <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
               <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>🍱</span> 9 Meal Entitlements Matrix
                 </h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                   Day 1, Day 2, and Day 3 Breakfast, Lunch, and Dinner servings
                 </p>
               </div>
-              <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' }}>
+              <span className="badge" style={{ background: 'var(--primary-subtle)', color: 'var(--primary)', border: '1px solid rgba(13, 98, 94, 0.2)' }}>
                 {data.stats.mealsRedeemed} / {data.stats.mealsTotal} Redeemed
               </span>
             </div>
@@ -784,7 +1329,7 @@ export default function ScannerPage() {
                   className={`matrix-item ${meal.status === 'REDEEMED' ? 'redeemed' : ''}`}
                 >
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#fff' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-heading)' }}>
                       {meal.title}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -815,16 +1360,16 @@ export default function ScannerPage() {
 
           {/* 10 Sessions Entitlement Section */}
           <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
               <div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#06b6d4', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>🎤</span> 10 Sessions Access Matrix
                 </h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                  Keynotes, technical tracks, and specialized workshops
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  Keynotes, technical tracks, and specialized surgical workshops
                 </p>
               </div>
-              <span className="badge" style={{ background: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4' }}>
+              <span className="badge" style={{ background: 'var(--accent-bg)', color: 'var(--accent)', border: '1px solid var(--success-border)' }}>
                 {data.stats.sessionsRedeemed} / {data.stats.sessionsTotal} Attended
               </span>
             </div>
@@ -836,7 +1381,7 @@ export default function ScannerPage() {
                   className={`matrix-item ${ses.status === 'REDEEMED' ? 'redeemed' : ''}`}
                 >
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#fff' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-heading)' }}>
                       {ses.title}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>

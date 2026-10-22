@@ -19,7 +19,7 @@ export interface SessionPayload {
   userId: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'OPERATOR' | 'VOLUNTEER';
+  role: 'ADMIN' | 'OPERATOR' | 'VENDOR' | 'VOLUNTEER';
   expiresAt: number;
 }
 
