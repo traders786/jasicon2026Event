@@ -130,6 +130,77 @@ export default function ParticipantsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Super Admin Multi-Select & Bulk Delete State
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+  const [bulkDeleteSuccess, setBulkDeleteSuccess] = useState<string | null>(null);
+
+  const isAllPageSelected =
+    participants.length > 0 && participants.every((p) => selectedIds.includes(p.id));
+  const isSomePageSelected =
+    participants.some((p) => selectedIds.includes(p.id)) && !isAllPageSelected;
+
+  const handleToggleSelectAll = () => {
+    if (isAllPageSelected) {
+      // Unselect all currently on this page
+      const pageIdSet = new Set(participants.map((p) => p.id));
+      setSelectedIds((prev) => prev.filter((id) => !pageIdSet.has(id)));
+    } else {
+      // Select all currently on this page
+      const pageIds = participants.map((p) => p.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const handleToggleSelectRow = (id: string, e: React.MouseEvent | React.ChangeEvent) => {
+    e.stopPropagation();
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds([]);
+  };
+
+  const handleExecuteBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkDeleting(true);
+    setBulkDeleteError(null);
+
+    try {
+      const res = await fetch('/api/registrations/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete selected participants');
+      }
+
+      const count = data.count ?? selectedIds.length;
+      const deletedSet = new Set(selectedIds);
+      setParticipants((prev) => prev.filter((p) => !deletedSet.has(p.id)));
+      setPagination((prev) => ({
+        ...prev,
+        total: Math.max(0, prev.total - count),
+      }));
+
+      setSelectedIds([]);
+      setShowBulkDeleteConfirm(false);
+      setBulkDeleteSuccess(`Successfully deleted ${count} participant(s).`);
+      setTimeout(() => setBulkDeleteSuccess(null), 6000);
+    } catch (err: unknown) {
+      setBulkDeleteError(err instanceof Error ? err.message : 'Bulk deletion failed');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleDeleteParticipant = async () => {
     if (!deleteTarget) return;
     const targetId = deleteTarget.id;
@@ -144,6 +215,7 @@ export default function ParticipantsPage() {
 
       // Optimistically remove immediately from table rows in-memory (no full page reload)
       setParticipants((prev) => prev.filter((p) => p.id !== targetId));
+      setSelectedIds((prev) => prev.filter((id) => id !== targetId));
       setPagination((prev) => ({
         ...prev,
         total: Math.max(0, prev.total - 1),
@@ -625,6 +697,130 @@ export default function ParticipantsPage() {
         <span>Swipe table horizontally to view all columns • Tap any attendee to view profile &amp; badge</span>
       </div>
 
+      {/* Super Admin Bulk Delete Success Alert */}
+      {bulkDeleteSuccess && (
+        <div
+          style={{
+            background: '#ecfdf5',
+            border: '1px solid #a7f3d0',
+            color: '#065f46',
+            padding: '0.85rem 1.25rem',
+            borderRadius: '12px',
+            fontSize: '0.9rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 2px 6px rgba(5, 150, 105, 0.08)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.1rem' }}>✓</span>
+            <span>{bulkDeleteSuccess}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setBulkDeleteSuccess(null)}
+            style={{ background: 'transparent', border: 'none', color: '#065f46', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Super Admin Bulk Selection Action Bar */}
+      {currentUserRole === 'ADMIN' && selectedIds.length > 0 && (
+        <div
+          style={{
+            position: 'sticky',
+            top: '72px',
+            zIndex: 30,
+            background: '#ffffff',
+            border: '2px solid var(--primary)',
+            borderRadius: '14px',
+            padding: '0.85rem 1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            boxShadow: '0 8px 24px -4px rgba(13, 98, 94, 0.18)',
+            animation: 'fadeIn 0.15s ease-out',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--primary)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+              }}
+            >
+              ✓
+            </span>
+            <div>
+              <div style={{ fontWeight: 800, color: 'var(--text-heading)', fontSize: '0.95rem' }}>
+                {selectedIds.length} participant{selectedIds.length > 1 ? 's' : ''} selected
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Apply actions to all selected records simultaneously
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleToggleSelectAll}
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.8rem' }}
+            >
+              {isAllPageSelected ? 'Deselect Page' : `Select All on Page (${participants.length})`}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleClearSelection}
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.8rem' }}
+            >
+              Clear Selection
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setBulkDeleteError(null);
+                setShowBulkDeleteConfirm(true);
+              }}
+              className="btn btn-sm"
+              style={{
+                background: '#dc2626',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
+                cursor: 'pointer',
+              }}
+            >
+              <span>🗑️</span>
+              <span>Delete Selected ({selectedIds.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="card" style={{ padding: '0' }}>
         {loading && participants.length === 0 ? (
@@ -641,6 +837,20 @@ export default function ParticipantsPage() {
             <table className="data-table">
               <thead>
                 <tr>
+                  {currentUserRole === 'ADMIN' && (
+                    <th style={{ width: '48px', textAlign: 'center', paddingLeft: '1rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={isAllPageSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = isSomePageSelected;
+                        }}
+                        onChange={handleToggleSelectAll}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+                        title={isAllPageSelected ? 'Deselect all on this page' : 'Select all on this page'}
+                      />
+                    </th>
+                  )}
                   <th>Ticket</th>
                   <th>Attendee</th>
                   <th>Contact Info</th>
@@ -660,6 +870,7 @@ export default function ParticipantsPage() {
                     .slice(0, 2)
                     .map((n) => n[0]?.toUpperCase())
                     .join('');
+                  const isSelected = selectedIds.includes(p.id);
 
                   return (
                     <tr
@@ -668,9 +879,23 @@ export default function ParticipantsPage() {
                         setModalInitialTab('details');
                         setSelectedParticipantId(p.id);
                       }}
-                      className="participant-row-clickable"
+                      className={`participant-row-clickable ${isSelected ? 'row-selected' : ''}`}
+                      style={isSelected ? { backgroundColor: 'rgba(13, 98, 94, 0.08)' } : {}}
                       title="Click to view full attendee profile, QR code, and print badge"
                     >
+                      {currentUserRole === 'ADMIN' && (
+                        <td
+                          onClick={(e) => handleToggleSelectRow(p.id, e)}
+                          style={{ textAlign: 'center', paddingLeft: '1rem', cursor: 'pointer' }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => handleToggleSelectRow(p.id, e)}
+                            style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+                          />
+                        </td>
+                      )}
                       <td>
                         <code style={{ fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-subtle)', padding: '3px 8px', borderRadius: '6px' }}>
                           {p.ticketCode}
@@ -1710,6 +1935,175 @@ export default function ParticipantsPage() {
                 }}
               >
                 {deletingId ? 'Deleting...' : 'Yes, Permanently Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ======================================================== */}
+      {/* SUPER ADMIN BULK DELETE CONFIRMATION MODAL */}
+      {/* ======================================================== */}
+      {showBulkDeleteConfirm && selectedIds.length > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+          }}
+          onClick={() => {
+            if (!bulkDeleting) setShowBulkDeleteConfirm(false);
+          }}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card, #ffffff)',
+              color: 'var(--text-heading, #0f172a)',
+              borderRadius: '16px',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '1.75rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid var(--border-subtle, #e2e8f0)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  background: '#fee2e2',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.4rem',
+                  flexShrink: 0,
+                }}
+              >
+                ⚠️
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#dc2626' }}>
+                  Delete {selectedIds.length} Selected Participant{selectedIds.length > 1 ? 's' : ''}?
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted, #64748b)' }}>
+                  Super Admin Bulk Permanent Deletion
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-body, #334155)', lineHeight: 1.5, marginBottom: '0.75rem' }}>
+              Are you sure you want to permanently delete all <strong>{selectedIds.length}</strong> selected attendee registrations?
+            </p>
+
+            {/* List of selected participants preview */}
+            <div
+              style={{
+                maxHeight: '160px',
+                overflowY: 'auto',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                marginBottom: '1rem',
+                background: '#f8fafc',
+                fontSize: '0.82rem',
+              }}
+            >
+              {participants
+                .filter((p) => selectedIds.includes(p.id))
+                .slice(0, 8)
+                .map((p) => (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '4px 0',
+                      borderBottom: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, color: 'var(--text-heading)' }}>{p.person.name}</span>
+                    <code style={{ color: 'var(--primary)', fontWeight: 700 }}>{p.ticketCode}</code>
+                  </div>
+                ))}
+              {selectedIds.length > 8 && (
+                <div style={{ textAlign: 'center', padding: '6px 0 2px', color: 'var(--text-dim)', fontStyle: 'italic', fontSize: '0.78rem' }}>
+                  + {selectedIds.length - 8} more attendees selected
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                color: '#991b1b',
+                marginBottom: '1.25rem',
+                lineHeight: 1.4,
+              }}
+            >
+              <strong>Notice:</strong> This action is irreversible. It will permanently remove:
+              <ul style={{ margin: '6px 0 0 1rem', padding: 0 }}>
+                <li>All 19 meal &amp; session entitlements for these attendees</li>
+                <li>QR code tickets and bearer token hashes</li>
+                <li>Redemption audit logs</li>
+              </ul>
+            </div>
+
+            {bulkDeleteError && (
+              <div
+                style={{
+                  background: '#fef2f2',
+                  color: '#dc2626',
+                  padding: '0.6rem 0.8rem',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  marginBottom: '1rem',
+                }}
+              >
+                ❌ {bulkDeleteError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={bulkDeleting}
+                onClick={() => setShowBulkDeleteConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={() => void handleExecuteBulkDelete()}
+                style={{
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  border: 'none',
+                  padding: '0.6rem 1.25rem',
+                  borderRadius: '8px',
+                  cursor: bulkDeleting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                {bulkDeleting ? 'Deleting...' : `Yes, Permanently Delete (${selectedIds.length})`}
               </button>
             </div>
           </div>
