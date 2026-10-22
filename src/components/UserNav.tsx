@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 interface AuthUser {
   id: string;
@@ -14,6 +15,7 @@ export function UserNav() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     let isMounted = true;
@@ -22,6 +24,8 @@ export function UserNav() {
       .then((data) => {
         if (isMounted && data?.authenticated) {
           setUser(data.user);
+        } else if (isMounted) {
+          setUser(null);
         }
       })
       .catch(() => {});
@@ -29,7 +33,7 @@ export function UserNav() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [pathname]);
 
   // Close dropdown on click outside or Escape
   useEffect(() => {
@@ -57,6 +61,7 @@ export function UserNav() {
   }, [dropdownOpen]);
 
   if (!user) {
+    if (pathname === '/login') return null;
     return (
       <Link
         href="/login"
@@ -71,7 +76,7 @@ export function UserNav() {
         }}
       >
         <span>🔐</span>
-        <span>Staff Sign In</span>
+        <span>Sign In</span>
       </Link>
     );
   }
@@ -349,6 +354,27 @@ export function UserNav() {
                 >
                   <span>👥</span>
                   <span>Manage Attendees (Full CRUD)</span>
+                </Link>
+                <Link
+                  href="/backend"
+                  onClick={() => setDropdownOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.82rem',
+                    color: 'var(--text-main)',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-subtle)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span>⚙️</span>
+                  <span>Backend &amp; Database Details</span>
                 </Link>
               </>
             )}

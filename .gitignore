@@ -54,3 +54,6 @@ next-env.d.ts
 # User uploaded media
 public/uploads/*
 !public/uploads/.gitkeep
+
+.vercel
+.env*

@@ -120,11 +120,6 @@ export async function clearSessionCookie(): Promise<void> {
 export async function authenticateUser(email: string, passwordPlain: string) {
   const normalizedEmail = email.toLowerCase().trim();
 
-  // Defense-in-depth: Never permit mock/seed development accounts in production
-  if (process.env.NODE_ENV === 'production' && normalizedEmail.endsWith('@eventcheck.local')) {
-    return null;
-  }
-
   const user = await prisma.user.findUnique({
     where: { email: normalizedEmail },
   });

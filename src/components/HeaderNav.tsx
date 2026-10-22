@@ -53,8 +53,12 @@ export function HeaderNav() {
     };
   }, [pathname]);
 
-  // Dynamic role-based navigation links
+  const isLoginPage = pathname === '/login';
+
+  // Dynamic role-based navigation links:
+  // Show ONLY the specific links for the logged-in role. If not logged in, show none.
   const navLinks = (() => {
+    if (!userRole) return [];
     if (userRole === 'VENDOR') {
       return [
         { href: '/scanner', label: 'Vendor Scanner', icon: '📷' },
@@ -62,19 +66,19 @@ export function HeaderNav() {
     }
     if (userRole === 'OPERATOR') {
       return [
-        { href: '/', label: 'Dashboard', icon: '📊' },
+        { href: '/participants', label: 'Participants', icon: '👥' },
         { href: '/scanner', label: 'QR Scanner', icon: '📷' },
         { href: '/register', label: 'New Registration', icon: '➕' },
-        { href: '/participants', label: 'Participants', icon: '👥' },
       ];
     }
-    // Default / Super Admin: Full navigation
+    // Super Admin: Full navigation
     return [
       { href: '/', label: 'Dashboard', icon: '📊' },
+      { href: '/participants', label: 'Participants', icon: '👥' },
       { href: '/scanner', label: 'QR Scanner', icon: '📷' },
       { href: '/register', label: 'New Registration', icon: '➕' },
-      { href: '/participants', label: 'Participants', icon: '👥' },
       { href: '/audit', label: 'Audit History', icon: '🕒' },
+      { href: '/backend', label: 'Backend Details', icon: '⚙️' },
     ];
   })();
 
@@ -83,7 +87,7 @@ export function HeaderNav() {
       <div className="nav-inner">
         {/* Clean Evently Brand Group */}
         <Link
-          href="/"
+          href={userRole === 'VENDOR' ? '/scanner' : userRole ? '/' : '/login'}
           className="brand-group"
           onClick={() => setMobileMenuOpen(false)}
         >
@@ -100,21 +104,23 @@ export function HeaderNav() {
           <span className="brand-title">Evently</span>
         </Link>
 
-        {/* Desktop Navigation Links */}
-        <nav className="nav-links desktop-only-nav">
-          {navLinks.map((link) => {
-            const isActive = pathname === link.href;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`nav-link ${isActive ? 'active' : ''}`}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Desktop Navigation Links (Only shown when authenticated and not on login page) */}
+        {!isLoginPage && navLinks.length > 0 && (
+          <nav className="nav-links desktop-only-nav">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`nav-link ${isActive ? 'active' : ''}`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+        )}
 
         {/* Header Right Cluster: Status + UserNav + Mobile Hamburger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -130,21 +136,22 @@ export function HeaderNav() {
                 flexShrink: 0,
               }}
             />
-            <span style={{ whiteSpace: 'nowrap' }}>PostgreSQL 5433</span>
+            <span style={{ whiteSpace: 'nowrap' }}>JASICON 2026</span>
           </span>
 
           <div className="desktop-usernav-wrap">
             <UserNav />
           </div>
 
-          {/* Mobile Hamburger Button */}
-          <button
-            type="button"
-            className="mobile-hamburger-btn"
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
-            aria-label={mobileMenuOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
-            aria-expanded={mobileMenuOpen}
-          >
+          {/* Mobile Hamburger Button (Only shown when authenticated and navLinks exist) */}
+          {!isLoginPage && navLinks.length > 0 && (
+            <button
+              type="button"
+              className="mobile-hamburger-btn"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label={mobileMenuOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
+              aria-expanded={mobileMenuOpen}
+            >
             <svg
               width="22"
               height="22"
@@ -169,6 +176,7 @@ export function HeaderNav() {
               )}
             </svg>
           </button>
+          )}
         </div>
       </div>
 

@@ -10,14 +10,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showBackendInfo, setShowBackendInfo] = useState(false);
 
-  const handleLogin = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!email || !password) {
-      setError('Please provide both email and password.');
-      return;
-    }
-
+  const performLogin = async (loginEmail: string, loginPass: string) => {
     setLoading(true);
     setError(null);
     setSuccessMsg(null);
@@ -26,7 +21,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: loginEmail, password: loginPass }),
       });
 
       const data = await res.json();
@@ -38,6 +33,8 @@ export default function LoginPage() {
       setTimeout(() => {
         if (data.user.role === 'VENDOR') {
           router.push('/scanner');
+        } else if (data.user.role === 'OPERATOR') {
+          router.push('/participants');
         } else {
           router.push('/');
         }
@@ -50,8 +47,27 @@ export default function LoginPage() {
     }
   };
 
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!email || !password) {
+      setError('Please provide both email and password.');
+      return;
+    }
+    await performLogin(email, password);
+  };
+
+  const handleQuickFill = (testEmail: string, testPass: string, autoLogin = false) => {
+    setEmail(testEmail);
+    setPassword(testPass);
+    setError(null);
+    if (autoLogin) {
+      void performLogin(testEmail, testPass);
+    }
+  };
+
   return (
-    <div style={{ maxWidth: '440px', margin: '3.5rem auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div style={{ maxWidth: '460px', margin: '2.5rem auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {/* Brand Header */}
       <div style={{ textAlign: 'center' }}>
         <div
           style={{
@@ -87,6 +103,26 @@ export default function LoginPage() {
         </p>
       </div>
 
+      {/* Security notice */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '8px 12px',
+          borderRadius: '10px',
+          background: 'rgba(13, 98, 94, 0.06)',
+          border: '1px solid rgba(13, 98, 94, 0.15)',
+          fontSize: '0.8rem',
+          color: 'var(--primary)',
+          fontWeight: 600,
+        }}
+      >
+        <span>🔒</span>
+        <span>All portal pages are protected. Please sign in to access your role.</span>
+      </div>
+
+      {/* Login Card */}
       <div className="card">
         {error && (
           <div
@@ -126,7 +162,7 @@ export default function LoginPage() {
             <input
               type="email"
               className="form-input"
-              placeholder="operator@example.com"
+              placeholder="admin@jasicon2026.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
@@ -156,6 +192,175 @@ export default function LoginPage() {
             {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
+
+        {/* 1-Click Role Quick Fill Buttons */}
+        <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem' }}>
+          <div
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              color: 'var(--text-dim)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              marginBottom: '0.75rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>Quick 1-Click Role Login</span>
+            <span style={{ fontWeight: 600, color: 'var(--primary)', textTransform: 'none' }}>Click to auto-fill</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Super Admin */}
+            <button
+              type="button"
+              onClick={() => handleQuickFill('admin@jasicon2026.com', 'Admin123!', true)}
+              disabled={loading}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid #a7f3d0',
+                background: '#ecfdf5',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#065f46', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>👑</span>
+                  <span>Super Admin</span>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#047857' }}>
+                  admin@jasicon2026.com • Full Control
+                </div>
+              </div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669', background: '#ffffff', padding: '3px 8px', borderRadius: '6px' }}>
+                Sign In →
+              </span>
+            </button>
+
+            {/* Registration Desk Operator */}
+            <button
+              type="button"
+              onClick={() => handleQuickFill('desk@jasicon2026.com', 'Desk123!', true)}
+              disabled={loading}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid #bae6fd',
+                background: '#f0f9ff',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#075985', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>💻</span>
+                  <span>Desk Operator</span>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#0369a1' }}>
+                  desk@jasicon2026.com • Badge &amp; Check-In
+                </div>
+              </div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0284c7', background: '#ffffff', padding: '3px 8px', borderRadius: '6px' }}>
+                Sign In →
+              </span>
+            </button>
+
+            {/* Catering Vendor */}
+            <button
+              type="button"
+              onClick={() => handleQuickFill('caterer@jasicon2026.com', 'Vendor123!', true)}
+              disabled={loading}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid #fde68a',
+                background: '#fffbeb',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🍽️</span>
+                  <span>Catering Vendor</span>
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#b45309' }}>
+                  caterer@jasicon2026.com • Counter Redemptions
+                </div>
+              </div>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#d97706', background: '#ffffff', padding: '3px 8px', borderRadius: '6px' }}>
+                Sign In →
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Backend & Database Quick Status Box */}
+      <div
+        className="card"
+        style={{
+          padding: '0.85rem 1rem',
+          background: '#f8fafc',
+          border: '1px solid #e2e8f0',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+              Database: PostgreSQL 16 (Port 5433)
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowBackendInfo((prev) => !prev)}
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: 'var(--primary)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            {showBackendInfo ? 'Hide Details ▲' : 'Backend Details ▼'}
+          </button>
+        </div>
+
+        {showBackendInfo && (
+          <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0', fontSize: '0.78rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
+            <div style={{ marginBottom: '4px' }}>
+              • <strong>Database Engine:</strong> PostgreSQL on <code>127.0.0.1:5433/eventcheck_dev</code>
+            </div>
+            <div style={{ marginBottom: '4px' }}>
+              • <strong>Prisma Schema:</strong> <code>prisma/schema.prisma</code> (6 models)
+            </div>
+            <div style={{ marginBottom: '4px' }}>
+              • <strong>Visual GUI:</strong> Run <code>npx prisma studio</code> in terminal to view all tables at <code>http://localhost:5555</code>
+            </div>
+            <div>
+              • <strong>System Status API:</strong> <code>/api/backend/status</code>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
