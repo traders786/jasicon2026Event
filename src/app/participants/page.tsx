@@ -228,6 +228,49 @@ export default function ParticipantsPage() {
     }
   };
 
+  const handleQuickWhatsApp = (p: ParticipantItem) => {
+    let phone = p.person.phone?.trim() || '';
+    if (!phone) {
+      const input = window.prompt(`Enter WhatsApp mobile number for ${p.person.name}:`, "");
+      if (!input) return;
+      phone = input.trim();
+    }
+    const digitsOnly = phone.replace(/\D/g, '');
+    if (digitsOnly.length < 10) {
+      alert('Please enter a valid mobile number with at least 10 digits.');
+      return;
+    }
+    const formattedPhone = digitsOnly.length === 10 ? `91${digitsOnly}` : digitsOnly;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eventt-nu.vercel.app';
+    const badgeUrl = `${origin}/badge/${p.ticketCode}`;
+    const cleanName = p.person.name.trim().replace(/^Dr\.?\s+/i, '');
+    const displayName = `Dr. ${cleanName}`;
+    const categoryText = (p.person.jobTitle || 'Delegate').toUpperCase();
+
+    const text = `Dear ${displayName},
+
+Greetings from JASICON 2026, Deoghar.
+
+Your registration for the 25th Annual Conference of ASI (Jharkhand Chapter) is confirmed.
+
+Registration Details:
+• Delegate: ${displayName}
+• Category: ${categoryText}
+• Reg No: ${p.ticketCode}
+• Venue: Deoghar, Jharkhand
+
+Access your Digital Badge & Entry QR Code:
+${badgeUrl}
+
+Please show this QR code at the registration desk for express check-in, conference kit, and meal access.
+
+Warm regards,
+Organizing Committee
+JASICON 2026, Deoghar`;
+
+    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  };
+
   // Close profile modal on Escape
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -987,11 +1030,11 @@ export default function ParticipantsPage() {
                           </div>
                         </div>
                       </td>
-                      <td style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-                        {new Date(p.createdAt).toLocaleDateString()}
+                      <td style={{ fontSize: '0.8rem', color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+                        {new Date(p.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                       </td>
-                      <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: 'nowrap', textAlign: 'right', paddingRight: '1.25rem' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                      <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: 'nowrap', textAlign: 'right', paddingRight: '0.85rem' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                           <button
                             type="button"
                             onClick={() => {
@@ -1024,6 +1067,17 @@ export default function ParticipantsPage() {
                               <line x1="7" y1="16" x2="17" y2="16"></line>
                             </svg>
                             <span>Badge</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickWhatsApp(p)}
+                            className="action-btn-whatsapp"
+                            title="Send badge & QR code to doctor via WhatsApp"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.592 2.654-.696c1.001.554 1.833.821 2.806.821h.005c3.182 0 5.768-2.586 5.769-5.766.001-3.182-2.585-5.77-5.769-5.772zm3.377 8.169c-.14.394-.716.726-1.026.77-.31.045-.694.075-2.036-.45-1.579-.619-2.588-2.228-2.667-2.333-.078-.105-.644-.858-.644-1.637 0-.779.408-1.162.553-1.32.146-.157.319-.197.426-.197.106 0 .213 0 .306.005.099.006.232-.037.363.277.135.324.462 1.127.502 1.209.04.082.067.177.013.285-.053.107-.08.174-.159.266-.08.093-.167.207-.239.278-.08.08-.163.167-.07.327.093.16.413.682.887 1.103.61.543 1.124.71 1.284.79.16.08.253.067.347-.04.093-.107.4-466.507-.626.107-.16.213-.133.36-.08.146.053.931.439 1.091.518.16.08.267.12.307.186.04.067.04.387-.1 1.082z" />
+                            </svg>
+                            <span>WhatsApp</span>
                           </button>
                           {currentUserRole === 'ADMIN' && (
                             <button

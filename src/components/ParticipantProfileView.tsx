@@ -334,6 +334,63 @@ export function ParticipantProfileView({
     setTimeout(() => setCopiedToken(false), 2000);
   };
 
+  const handleHeaderPrintBadge = () => {
+    if (activeTab === 'badge') {
+      const printBtn = document.querySelector('.badge-toolbar button.btn-primary') as HTMLButtonElement | null;
+      if (printBtn) {
+        printBtn.click();
+      } else {
+        window.print();
+      }
+    } else {
+      setActiveTab('badge');
+    }
+  };
+
+  const handleSendWhatsApp = () => {
+    if (!data) return;
+    let phone = data.person.phone?.trim() || '';
+    if (!phone) {
+      const input = window.prompt("Doctor's phone number is missing. Please enter their 10-digit mobile number for WhatsApp:", "");
+      if (!input) return;
+      phone = input.trim();
+    }
+    const digitsOnly = phone.replace(/\D/g, '');
+    if (digitsOnly.length < 10) {
+      alert('Please enter a valid mobile number with at least 10 digits.');
+      return;
+    }
+    const formattedPhone = digitsOnly.length === 10 ? `91${digitsOnly}` : digitsOnly;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eventt-nu.vercel.app';
+    const badgeUrl = `${origin}/badge/${data.ticketCode}`;
+    const cleanName = data.person.name.trim().replace(/^Dr\.?\s+/i, '');
+    const displayName = `Dr. ${cleanName}`;
+    const categoryText = (data.person.jobTitle || 'Delegate').toUpperCase();
+
+    const text = `Dear ${displayName},
+
+Greetings from JASICON 2026, Deoghar.
+
+Your registration for the 25th Annual Conference of ASI (Jharkhand Chapter) is confirmed.
+
+Registration Details:
+• Delegate: ${displayName}
+• Category: ${categoryText}
+• Reg No: ${data.ticketCode}
+• Venue: Deoghar, Jharkhand
+
+Access your Digital Badge & Entry QR Code:
+${badgeUrl}
+
+Please show this QR code at the registration desk for express check-in, conference kit, and meal access.
+
+Warm regards,
+Organizing Committee
+JASICON 2026, Deoghar`;
+
+    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  };
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
@@ -444,12 +501,37 @@ export function ParticipantProfileView({
           {/* Quick Actions */}
           <div className="profile-actions-block">
             <button
-              onClick={() => setActiveTab('badge')}
+              type="button"
+              onClick={handleHeaderPrintBadge}
               className="btn btn-primary"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+              title={activeTab === 'badge' ? 'Print conference badge now' : 'Switch to Badge preview'}
             >
               <span>🖨️</span>
-              <span>Print Badge</span>
+              <span>{activeTab === 'badge' ? 'Print Badge Now' : 'Print Badge'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSendWhatsApp}
+              className="btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#25D366',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: 700,
+                boxShadow: '0 2px 8px rgba(37, 211, 102, 0.25)',
+                cursor: 'pointer',
+              }}
+              title="Send conference badge and digital link to doctor on WhatsApp"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.592 2.654-.696c1.001.554 1.833.821 2.806.821h.005c3.182 0 5.768-2.586 5.769-5.766.001-3.182-2.585-5.77-5.769-5.772zm3.377 8.169c-.14.394-.716.726-1.026.77-.31.045-.694.075-2.036-.45-1.579-.619-2.588-2.228-2.667-2.333-.078-.105-.644-.858-.644-1.637 0-.779.408-1.162.553-1.32.146-.157.319-.197.426-.197.106 0 .213 0 .306.005.099.006.232-.037.363.277.135.324.462 1.127.502 1.209.04.082.067.177.013.285-.053.107-.08.174-.159.266-.08.093-.167.207-.239.278-.08.08-.163.167-.07.327.093.16.413.682.887 1.103.61.543 1.124.71 1.284.79.16.08.253.067.347-.04.093-.107.4-466.507-.626.107-.16.213-.133.36-.08.146.053.931.439 1.091.518.16.08.267.12.307.186.04.067.04.387-.1 1.082z" />
+              </svg>
+              <span>WhatsApp Badge</span>
             </button>
 
             <button
@@ -570,11 +652,30 @@ export function ParticipantProfileView({
 
               <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '1rem', flexWrap: 'wrap' }}>
                 <button
+                  type="button"
                   onClick={() => setActiveTab('badge')}
                   className="btn btn-primary btn-sm"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 >
                   <span>🖨️</span> Print Badge
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendWhatsApp}
+                  className="btn btn-sm"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#25D366',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                  title="Send badge and QR to doctor on WhatsApp"
+                >
+                  <span>📱</span> WhatsApp Badge
                 </button>
                 <a
                   href={data.qrDataUrl}

@@ -10,7 +10,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [showBackendInfo, setShowBackendInfo] = useState(false);
 
   const performLogin = async (loginEmail: string, loginPass: string) => {
     setLoading(true);
@@ -312,56 +311,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Backend & Database Quick Status Box */}
-      <div
-        className="card"
-        style={{
-          padding: '0.85rem 1rem',
-          background: '#f8fafc',
-          border: '1px solid #e2e8f0',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-heading)' }}>
-              Database: PostgreSQL 16 (Port 5433)
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowBackendInfo((prev) => !prev)}
-            style={{
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              color: 'var(--primary)',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            {showBackendInfo ? 'Hide Details ▲' : 'Backend Details ▼'}
-          </button>
-        </div>
-
-        {showBackendInfo && (
-          <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0', fontSize: '0.78rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
-            <div style={{ marginBottom: '4px' }}>
-              • <strong>Database Engine:</strong> PostgreSQL on <code>127.0.0.1:5433/eventcheck_dev</code>
-            </div>
-            <div style={{ marginBottom: '4px' }}>
-              • <strong>Prisma Schema:</strong> <code>prisma/schema.prisma</code> (6 models)
-            </div>
-            <div style={{ marginBottom: '4px' }}>
-              • <strong>Visual GUI:</strong> Run <code>npx prisma studio</code> in terminal to view all tables at <code>http://localhost:5555</code>
-            </div>
-            <div>
-              • <strong>System Status API:</strong> <code>/api/backend/status</code>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

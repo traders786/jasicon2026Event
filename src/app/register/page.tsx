@@ -32,7 +32,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
+  const [category, setCategory] = useState<'DELEGATE' | 'FACULTY' | 'PG STUDENT'>('DELEGATE');
+  const [savedPhone, setSavedPhone] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +57,9 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      const formattedPhone = phone ? `+91${phone}` : undefined;
+      setSavedPhone(phone);
+
       const res = await fetch('/api/registrations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -64,9 +68,9 @@ export default function RegisterPage() {
           firstName,
           lastName,
           email,
-          phone: phone || undefined,
+          phone: formattedPhone,
           company: company || undefined,
-          jobTitle: jobTitle || undefined,
+          jobTitle: category,
         }),
       });
 
@@ -82,7 +86,7 @@ export default function RegisterPage() {
       setEmail('');
       setPhone('');
       setCompany('');
-      setJobTitle('');
+      setCategory('DELEGATE');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -164,36 +168,66 @@ export default function RegisterPage() {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Phone Number</label>
-              <input
-                type="tel"
-                className="form-input"
-                placeholder="+1 555 0192"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
+              <label className="form-label">Phone Number (10 Digits)</label>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '0.65rem 0.85rem',
+                    background: '#f1f5f9',
+                    border: '1px solid var(--border)',
+                    borderRight: 'none',
+                    borderRadius: '8px 0 0 8px',
+                    fontSize: '0.9rem',
+                    fontWeight: 700,
+                    color: 'var(--text-heading)',
+                    userSelect: 'none',
+                  }}
+                >
+                  🇮🇳 +91
+                </span>
+                <input
+                  type="tel"
+                  className="form-input"
+                  style={{ borderRadius: '0 8px 8px 0' }}
+                  placeholder="9876543210"
+                  maxLength={10}
+                  value={phone}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setPhone(digits);
+                  }}
+                />
+              </div>
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                Pre-added country code +91. Limited to exactly 10 digits.
+              </p>
             </div>
           </div>
 
           <div className="form-grid-2">
             <div className="form-group">
-              <label className="form-label">Organization / Company</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Acme Innovations"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              />
+              <label className="form-label">Doctor Category *</label>
+              <select
+                className="form-select"
+                value={category}
+                onChange={(e) => setCategory(e.target.value as 'DELEGATE' | 'FACULTY' | 'PG STUDENT')}
+                required
+              >
+                <option value="DELEGATE">DELEGATE</option>
+                <option value="FACULTY">FACULTY</option>
+                <option value="PG STUDENT">PG STUDENT</option>
+              </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Job Title</label>
+              <label className="form-label">Institution / Hospital / District</label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="Senior Engineer"
-                value={jobTitle}
-                onChange={(e) => setJobTitle(e.target.value)}
+                placeholder="e.g. AIIMS Deoghar / Ranchi"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
               />
             </div>
           </div>
@@ -296,6 +330,34 @@ export default function RegisterPage() {
                   onClick={() => window.print()}
                 >
                   Print Badge
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  style={{
+                    background: '#25D366',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    const cleanPhone = savedPhone.replace(/\D/g, '');
+                    const formattedPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eventt-nu.vercel.app';
+                    const badgeUrl = `${origin}/badge/${createdBadge.registration.ticketCode}`;
+                    const rawName = createdBadge.registration.person.name || '';
+                    const cleanName = rawName.trim().replace(/^Dr\.?\s+/i, '');
+                    const displayName = `Dr. ${cleanName}`;
+                    const categoryText = (category || 'Delegate').toUpperCase();
+                    const text = `Dear ${displayName},\n\nGreetings from JASICON 2026, Deoghar.\n\nYour registration for the 25th Annual Conference of ASI (Jharkhand Chapter) is confirmed.\n\nRegistration Details:\n• Delegate: ${displayName}\n• Category: ${categoryText}\n• Reg No: ${createdBadge.registration.ticketCode}\n• Venue: Deoghar, Jharkhand\n\nAccess your Digital Badge & Entry QR Code:\n${badgeUrl}\n\nPlease show this QR code at the registration desk for express check-in, conference kit, and meal access.\n\nWarm regards,\nOrganizing Committee\nJASICON 2026, Deoghar`;
+                    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`, '_blank');
+                  }}
+                >
+                  <span>📱</span> Send to WhatsApp
                 </button>
               </div>
             </div>

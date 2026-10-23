@@ -9,6 +9,7 @@ export interface ParticipantBadgeProps {
   person: {
     name: string;
     email: string;
+    phone?: string | null;
     company?: string | null;
     jobTitle?: string | null;
     photoUrl?: string | null;
@@ -27,6 +28,7 @@ export interface ParticipantBadgeProps {
 
 export function ParticipantBadge({
   ticketCode,
+  status,
   person,
   event,
   qrDataUrl,
@@ -37,7 +39,153 @@ export function ParticipantBadge({
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const handlePrint = () => {
-    window.print();
+    if (!badgeCardRef.current) {
+      window.print();
+      return;
+    }
+
+    try {
+      const existingIframe = document.getElementById('ec-single-page-print-frame');
+      if (existingIframe) {
+        existingIframe.remove();
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.id = 'ec-single-page-print-frame';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow?.document;
+      if (!doc) {
+        window.print();
+        return;
+      }
+
+      let stylesHtml = '';
+      document.querySelectorAll('style, link[rel="stylesheet"]').forEach((el) => {
+        stylesHtml += el.outerHTML;
+      });
+
+      const badgeHtml = badgeCardRef.current.outerHTML;
+
+      doc.open();
+      doc.write(`<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Badge_${ticketCode}</title>
+    ${stylesHtml}
+    <style>
+      @page {
+        size: auto;
+        margin: 0 !important;
+      }
+      html, body {
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        background: #ffffff !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .conference-badge-card {
+        margin: auto !important;
+        box-shadow: none !important;
+        border: 2px solid #0d625e !important;
+        max-width: 86mm !important;
+        max-height: 125mm !important;
+        min-height: 0 !important;
+        height: auto !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
+        page-break-before: avoid !important;
+        break-inside: avoid !important;
+        break-after: avoid !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+      }
+      .no-print, .badge-lanyard-slot {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    ${badgeHtml}
+  </body>
+</html>`);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch {
+          window.print();
+        }
+      }, 300);
+    } catch {
+      window.print();
+    }
+  };
+
+  const handleSendWhatsApp = () => {
+    let phone = person.phone?.trim() || '';
+    if (!phone) {
+      const input = window.prompt("Doctor's phone number is missing. Please enter their 10-digit mobile number for WhatsApp:", "");
+      if (!input) return;
+      phone = input.trim();
+    }
+    const digitsOnly = phone.replace(/\D/g, '');
+    if (digitsOnly.length < 10) {
+      alert('Please enter a valid mobile number with at least 10 digits.');
+      return;
+    }
+    const formattedPhone = digitsOnly.length === 10 ? `91${digitsOnly}` : digitsOnly;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eventt-nu.vercel.app';
+    const badgeUrl = `${origin}/badge/${ticketCode}`;
+    const cleanName = person.name.trim().replace(/^Dr\.?\s+/i, '');
+    const displayName = `Dr. ${cleanName}`;
+    const categoryText = (category || person.jobTitle || 'Delegate').toUpperCase();
+
+    const text = `Dear ${displayName},
+
+Greetings from JASICON 2026, Deoghar.
+
+Your registration for the 25th Annual Conference of ASI (Jharkhand Chapter) is confirmed.
+
+Registration Details:
+• Delegate: ${displayName}
+• Category: ${categoryText}
+• Reg No: ${ticketCode}
+• Venue: Deoghar, Jharkhand
+
+Access your Digital Badge & Entry QR Code:
+${badgeUrl}
+
+Please show this QR code at the registration desk for express check-in, conference kit, and meal access.
+
+Warm regards,
+Organizing Committee
+JASICON 2026, Deoghar`;
+
+    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownloadPdf = async () => {
@@ -124,6 +272,29 @@ export function ParticipantBadge({
           >
             <span>📥</span>
             <span>Download QR PNG</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSendWhatsApp}
+            className="btn"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.9rem',
+              fontWeight: 700,
+              background: '#25D366',
+              color: '#ffffff',
+              border: 'none',
+              boxShadow: '0 2px 8px rgba(37, 211, 102, 0.25)',
+              cursor: 'pointer',
+            }}
+            title="Send conference badge and digital link to doctor on WhatsApp"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.592 2.654-.696c1.001.554 1.833.821 2.806.821h.005c3.182 0 5.768-2.586 5.769-5.766.001-3.182-2.585-5.77-5.769-5.772zm3.377 8.169c-.14.394-.716.726-1.026.77-.31.045-.694.075-2.036-.45-1.579-.619-2.588-2.228-2.667-2.333-.078-.105-.644-.858-.644-1.637 0-.779.408-1.162.553-1.32.146-.157.319-.197.426-.197.106 0 .213 0 .306.005.099.006.232-.037.363.277.135.324.462 1.127.502 1.209.04.082.067.177.013.285-.053.107-.08.174-.159.266-.08.093-.167.207-.239.278-.08.08-.163.167-.07.327.093.16.413.682.887 1.103.61.543 1.124.71 1.284.79.16.08.253.067.347-.04.093-.107.4-466.507-.626.107-.16.213-.133.36-.08.146.053.931.439 1.091.518.16.08.267.12.307.186.04.067.04.387-.1 1.082z" />
+            </svg>
+            <span>Send to WhatsApp</span>
           </button>
           {onClose && (
             <button

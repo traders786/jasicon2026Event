@@ -85,7 +85,7 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <span className="badge badge-available">● Active Conference</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Ranchi, Jharkhand • 19 Entitlements Per Delegate
+              Deoghar, Jharkhand • 19 Entitlements Per Delegate
             </span>
           </div>
           <h1 className="dashboard-banner-title">

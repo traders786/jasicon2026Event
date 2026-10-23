@@ -32,11 +32,12 @@ export function middleware(request: NextRequest) {
   const session = parseSession(sessionCookie);
 
   const isLoginPage = pathname === '/login';
+  const isBadgePage = pathname.startsWith('/badge/');
 
   // 1. If NO ONE is logged in:
   if (!session) {
-    if (isLoginPage) {
-      // Allow access to login page
+    if (isLoginPage || isBadgePage) {
+      // Allow access to login page and public attendee digital badges
       return NextResponse.next();
     }
     // Redirect all other pages to /login
