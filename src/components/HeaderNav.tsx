@@ -8,10 +8,31 @@ import { usePathname } from 'next/navigation';
 import { UserNav } from '@/components/UserNav';
 import { EventSwitcher } from '@/components/EventSwitcher';
 
-export function HeaderNav() {
+interface HeaderNavProps {
+  userRole?: string | null;
+  isSuperAdmin?: boolean;
+  activeEvent?: any;
+  showAdminSidebar?: boolean;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
+  onOpenCreateEvent?: () => void;
+}
+
+export function HeaderNav({
+  userRole: propUserRole,
+  isSuperAdmin: propIsSuperAdmin,
+  activeEvent: propActiveEvent,
+  showAdminSidebar = false,
+  sidebarCollapsed = false,
+  onToggleSidebar,
+}: HeaderNavProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+
+  const [internalUserRole, setInternalUserRole] = useState<string | null>(null);
+  const [internalIsSuperAdmin, setInternalIsSuperAdmin] = useState(false);
+  const [internalActiveEvent, setInternalActiveEvent] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -34,23 +55,22 @@ export function HeaderNav() {
     };
   }, [mobileMenuOpen]);
 
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [activeEvent, setActiveEvent] = useState<any>(null);
-
+  // Fetch session if not provided by parent AppShell
   useEffect(() => {
+    if (propUserRole !== undefined) return;
+
     let isMounted = true;
     fetch('/api/auth/me')
       .then((res) => (res.ok ? res.json() : null))
       .then((d) => {
         if (isMounted && d?.authenticated && d.user?.role) {
-          setUserRole(d.user.role);
-          setIsSuperAdmin(d.isSuperAdmin || d.user.role === 'ADMIN');
-          setActiveEvent(d.event || null);
+          setInternalUserRole(d.user.role);
+          setInternalIsSuperAdmin(d.isSuperAdmin || d.user.role === 'ADMIN');
+          setInternalActiveEvent(d.event || null);
         } else if (isMounted) {
-          setUserRole(null);
-          setIsSuperAdmin(false);
-          setActiveEvent(null);
+          setInternalUserRole(null);
+          setInternalIsSuperAdmin(false);
+          setInternalActiveEvent(null);
         }
       })
       .catch(() => {});
@@ -58,12 +78,15 @@ export function HeaderNav() {
     return () => {
       isMounted = false;
     };
-  }, [pathname]);
+  }, [pathname, propUserRole]);
+
+  const userRole = propUserRole !== undefined ? propUserRole : internalUserRole;
+  const isSuperAdmin = propIsSuperAdmin !== undefined ? propIsSuperAdmin : internalIsSuperAdmin;
+  const activeEvent = propActiveEvent !== undefined ? propActiveEvent : internalActiveEvent;
 
   const isLoginPage = pathname === '/login';
 
   // Dynamic role-based navigation links:
-  // Show ONLY the specific links for the logged-in role. If not logged in, show none.
   const navLinks = (() => {
     if (!userRole) return [];
     if (userRole === 'VENDOR') {
@@ -77,7 +100,7 @@ export function HeaderNav() {
         { href: '/register', label: 'New Registration', icon: '➕' },
       ];
     }
-    // Super Admin: Full navigation
+    // Super Admin navigation items
     return [
       { href: '/', label: 'Dashboard', icon: '📊' },
       { href: '/participants', label: 'Participants', icon: '👥' },
@@ -90,30 +113,102 @@ export function HeaderNav() {
     ];
   })();
 
-  return (
-    <header className="top-nav">
-      <div className="nav-inner">
-        {/* Clean Evently Brand Group */}
-        <Link
-          href={userRole === 'VENDOR' ? '/scanner' : userRole === 'OPERATOR' ? '/participants' : userRole ? '/' : '/login'}
-          className="brand-group"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <div className="brand-logo-wrap">
-            <Image
-              src="/evently-logo.jpg"
-              alt="Evently"
-              width={38}
-              height={38}
-              style={{ objectFit: 'contain' }}
-              priority
-            />
-          </div>
-          <span className="brand-title">Evently</span>
-        </Link>
+  const getPageTitle = (path: string) => {
+    if (path === '/') return 'Executive Dashboard';
+    if (path === '/participants') return 'Participants Directory';
+    if (path === '/register') return 'New Registration';
+    if (path === '/scanner') return 'QR Scanner & Check-in';
+    if (path === '/events') return 'Event Studio & Branding';
+    if (path === '/users') return 'Staff & Operators';
+    if (path === '/audit') return 'Audit History';
+    if (path === '/backend') return 'Backend & Cloud Health';
+    return 'Admin Console';
+  };
 
-        {/* Desktop Navigation Links (Only shown when authenticated and not on login page) */}
-        {!isLoginPage && navLinks.length > 0 && (
+  return (
+    <header className={`top-nav ${showAdminSidebar ? (sidebarCollapsed ? 'has-admin-sidebar sidebar-collapsed' : 'has-admin-sidebar') : ''}`}>
+      <div className="nav-inner">
+        {/* Left Section: For Super Admin on desktop, show Sidebar Toggle + Breadcrumb. Otherwise Brand Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: 0 }}>
+          {showAdminSidebar ? (
+            <>
+              {/* Desktop Super Admin breadcrumbs */}
+              <div className="admin-header-desktop-left">
+                {onToggleSidebar && (
+                  <button
+                    type="button"
+                    onClick={onToggleSidebar}
+                    className="admin-header-toggle-btn"
+                    title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="3" y1="12" x2="21" y2="12" />
+                      <line x1="3" y1="6" x2="21" y2="6" />
+                      <line x1="3" y1="18" x2="21" y2="18" />
+                    </svg>
+                  </button>
+                )}
+
+                <div className="admin-header-breadcrumb">
+                  <span className="admin-breadcrumb-root">Admin</span>
+                  <span className="admin-breadcrumb-sep">/</span>
+                  <span className="admin-breadcrumb-current">{getPageTitle(pathname)}</span>
+                </div>
+
+                {activeEvent?.ticketPrefix && (
+                  <span className="admin-header-prefix-pill" title="Current Ticket Prefix">
+                    {activeEvent.ticketPrefix}
+                  </span>
+                )}
+              </div>
+
+              {/* Mobile-only brand logo for Super Admin on small screens */}
+              <Link
+                href="/"
+                className="brand-group admin-header-mobile-brand"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <div className="brand-logo-wrap">
+                  <Image
+                    src="/evently-logo.jpg"
+                    alt="Evently"
+                    width={38}
+                    height={38}
+                    style={{ objectFit: 'contain' }}
+                    priority
+                  />
+                </div>
+                <span className="brand-title">Evently</span>
+              </Link>
+            </>
+          ) : (
+            /* Clean Evently Brand Group for non-admin or login page */
+            <Link
+              href={userRole === 'VENDOR' ? '/scanner' : userRole === 'OPERATOR' ? '/participants' : userRole ? '/' : '/login'}
+              className="brand-group"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <div className="brand-logo-wrap">
+                <Image
+                  src="/evently-logo.jpg"
+                  alt="Evently"
+                  width={38}
+                  height={38}
+                  style={{ objectFit: 'contain' }}
+                  priority
+                />
+              </div>
+              <span className="brand-title">Evently</span>
+            </Link>
+          )}
+        </div>
+
+        {/* Desktop Navigation Links:
+            IMPORTANT: For Super Admin on Desktop, these are in the left collapsible panel,
+            so do NOT render the crowded horizontal nav here! Only render for non-admin roles (Operator/Vendor).
+        */}
+        {!isLoginPage && !showAdminSidebar && navLinks.length > 0 && (
           <nav className="nav-links desktop-only-nav">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
@@ -131,9 +226,9 @@ export function HeaderNav() {
         )}
 
         {/* Header Right Cluster: Event Switcher + UserNav + Mobile Hamburger */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           {!isLoginPage && userRole && (
-            <div className="desktop-status-pill" style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="admin-top-event-switcher" style={{ display: 'flex', alignItems: 'center' }}>
               <EventSwitcher
                 isSuperAdmin={isSuperAdmin}
                 activeEventTitle={activeEvent?.title}
@@ -146,7 +241,7 @@ export function HeaderNav() {
             <UserNav />
           </div>
 
-          {/* Mobile Hamburger Button (Only shown when authenticated and navLinks exist) */}
+          {/* Mobile Hamburger Button (Shown on mobile devices for quick sheet menu) */}
           {!isLoginPage && navLinks.length > 0 && (
             <button
               type="button"
@@ -155,30 +250,30 @@ export function HeaderNav() {
               aria-label={mobileMenuOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
               aria-expanded={mobileMenuOpen}
             >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              {mobileMenuOpen ? (
-                <>
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </>
-              ) : (
-                <>
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
-                </>
-              )}
-            </svg>
-          </button>
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {mobileMenuOpen ? (
+                  <>
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </>
+                ) : (
+                  <>
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                  </>
+                )}
+              </svg>
+            </button>
           )}
         </div>
       </div>

@@ -123,6 +123,7 @@ export default async function BadgeViewPage({ params }: BadgePageProps) {
             venue: registration.event.venue,
             startDate: registration.event.startDate,
             endDate: registration.event.endDate,
+            logoUrl: registration.event.logoUrl,
           }}
           qrDataUrl={qrDataUrl}
           category={registration.person.jobTitle || 'DELEGATE'}

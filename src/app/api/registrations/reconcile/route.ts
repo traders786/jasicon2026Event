@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { parseSpreadsheet } from '@/lib/spreadsheet';
 import { requireAdmin } from '@/lib/auth';
+import { getEventContext } from '@/lib/event-context';
 
 export async function GET() {
   try {
@@ -10,15 +11,23 @@ export async function GET() {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    const eventCtx = await getEventContext();
+    const eventId = eventCtx?.eventId;
+    const eventFilter = eventId ? { eventId } : {};
+
     const placeholderPeople = await prisma.person.findMany({
       where: {
         OR: [
           { firstName: 'Guest', lastName: 'Participant' },
           { email: { contains: '@attendee.eventcheck.local' } },
         ],
+        registrations: {
+          some: eventFilter,
+        },
       },
       include: {
         registrations: {
+          where: eventFilter,
           select: {
             id: true,
             ticketCode: true,
@@ -103,9 +112,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No valid participants could be parsed from the provided spreadsheet.' }, { status: 400 });
     }
 
+    const eventCtx = await getEventContext();
+    const eventId = eventCtx?.eventId;
+    const eventFilter = eventId ? { eventId } : {};
+
     // 2. Fetch existing placeholder registrations
     const placeholderRegistrations = await prisma.eventRegistration.findMany({
       where: {
+        ...eventFilter,
         person: {
           OR: [
             { firstName: 'Guest', lastName: 'Participant' },

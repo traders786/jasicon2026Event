@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { CreateEventModal } from '@/components/CreateEventModal';
 
 interface EventItem {
   id: string;
@@ -32,18 +33,6 @@ export function EventSwitcher({ isSuperAdmin, activeEventTitle, activeEventCity 
   const [switching, setSwitching] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // New Event Form State
-  const [newTitle, setNewTitle] = useState('');
-  const [newSubtitle, setNewSubtitle] = useState('');
-  const [newVenue, setNewVenue] = useState('');
-  const [newCity, setNewCity] = useState('');
-  const [newStartDate, setNewStartDate] = useState('2026-11-15T09:00');
-  const [newEndDate, setNewEndDate] = useState('2026-11-17T18:00');
-  const [newPrefix, setNewPrefix] = useState('CONF-2026');
-  const [newColor, setNewColor] = useState('#1e40af'); // Default Royal Sapphire
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -132,43 +121,6 @@ export function EventSwitcher({ isSuperAdmin, activeEventTitle, activeEventCity 
       }
     } catch {
       setSwitching(false);
-    }
-  };
-
-  const handleCreateEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreating(true);
-    setCreateError(null);
-
-    try {
-      const slug = newTitle.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
-      const res = await fetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newTitle.trim(),
-          slug,
-          subtitle: newSubtitle.trim() || undefined,
-          venue: `${newVenue.trim()}${newCity ? ', ' + newCity.trim() : ''}`,
-          city: newCity.trim() || undefined,
-          startDate: new Date(newStartDate).toISOString(),
-          endDate: new Date(newEndDate).toISOString(),
-          ticketPrefix: newPrefix.trim() || 'CONF-2026',
-          primaryColor: newColor,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to create conference');
-      }
-
-      setCreateModalOpen(false);
-      window.location.reload();
-    } catch (err: unknown) {
-      setCreateError(err instanceof Error ? err.message : 'Error creating conference');
-    } finally {
-      setCreating(false);
     }
   };
 
@@ -329,203 +281,15 @@ export function EventSwitcher({ isSuperAdmin, activeEventTitle, activeEventCity 
         </div>
       )}
 
-      {/* Modal: Create New Conference */}
-      {createModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(8, 28, 26, 0.65)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999999,
-            padding: '1rem',
-          }}
-          onClick={() => setCreateModalOpen(false)}
-        >
-          <div
-            style={{
-              background: '#ffffff',
-              borderRadius: '20px',
-              padding: '1.75rem',
-              maxWidth: '520px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-              border: '1.5px solid var(--border-color)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-heading)' }}>
-                  🏛️ Create New Conference
-                </h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Set up a fresh event with custom branding, meals, and ticket codes.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCreateModalOpen(false)}
-                style={{
-                  background: 'var(--bg-subtle)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: '50%',
-                  width: '32px',
-                  height: '32px',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {createError && (
-              <div style={{ padding: '8px 12px', borderRadius: '8px', background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: '0.82rem', marginBottom: '1rem' }}>
-                ⚠️ {createError}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateEvent} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>
-                  Conference Title *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. DOSCON 2026, NEOCON 2027"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="form-input"
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>
-                  Subtitle / Edition
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Annual National Conference of DOS"
-                  value={newSubtitle}
-                  onChange={(e) => setNewSubtitle(e.target.value)}
-                  className="form-input"
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>
-                    Venue / Hotel *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. India Habitat Centre"
-                    value={newVenue}
-                    onChange={(e) => setNewVenue(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>
-                    City &amp; State
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. New Delhi"
-                    value={newCity}
-                    onChange={(e) => setNewCity(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>
-                    Start Date &amp; Time *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={newStartDate}
-                    onChange={(e) => setNewStartDate(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>
-                    End Date &amp; Time *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={newEndDate}
-                    onChange={(e) => setNewEndDate(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>
-                    Ticket Prefix *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. DOS-2026, NEO-2027"
-                    value={newPrefix}
-                    onChange={(e) => setNewPrefix(e.target.value.toUpperCase())}
-                    className="form-input"
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '4px' }}>
-                    Brand Color Theme
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                      type="color"
-                      value={newColor}
-                      onChange={(e) => setNewColor(e.target.value)}
-                      style={{ width: '40px', height: '38px', borderRadius: '8px', border: '1px solid var(--border-color)', cursor: 'pointer', padding: '2px' }}
-                    />
-                    <span style={{ fontSize: '0.82rem', fontFamily: 'monospace', fontWeight: 600 }}>{newColor}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setCreateModalOpen(false)}
-                  className="btn btn-secondary"
-                  style={{ flex: 1 }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="btn btn-primary"
-                  style={{ flex: 1, fontWeight: 800 }}
-                >
-                  {creating ? 'Creating Conference...' : '🚀 Launch Conference'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modal: Create New Conference (Rendered directly to body via portal) */}
+      <CreateEventModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreated={() => {
+          setCreateModalOpen(false);
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }

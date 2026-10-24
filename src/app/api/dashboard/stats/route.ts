@@ -87,7 +87,38 @@ export async function GET(request: Request) {
       },
     });
 
+    // 5. Active Event details
+    let activeEvent = null;
+    if (targetEventId) {
+      activeEvent = await prisma.event.findUnique({
+        where: { id: targetEventId },
+      });
+    } else if (eventCtx?.event) {
+      activeEvent = eventCtx.event;
+    }
+
+    const stationsList = Array.isArray(activeEvent?.stations) ? (activeEvent.stations as any[]) : [];
+    const mealsConfigured = stationsList.filter((s: any) => s.category === 'MEAL').length;
+    const sessionsConfigured = stationsList.filter((s: any) => s.category === 'SESSION').length;
+
     return NextResponse.json({
+      event: activeEvent
+        ? {
+            id: activeEvent.id,
+            title: activeEvent.title,
+            subtitle: activeEvent.subtitle || 'Annual Conference',
+            organizerName: activeEvent.organizerName || '',
+            venue: activeEvent.venue,
+            city: activeEvent.city || activeEvent.venue.split(',')[0]?.trim() || '',
+            ticketPrefix: activeEvent.ticketPrefix || 'CONF',
+            primaryColor: activeEvent.primaryColor || '#0d625e',
+            accentColor: activeEvent.accentColor || '#10b981',
+            stationsCount: stationsList.length > 0 ? stationsList.length : 19,
+            mealsCount: stationsList.length > 0 ? mealsConfigured : 9,
+            sessionsCount: stationsList.length > 0 ? sessionsConfigured : 10,
+            stations: stationsList,
+          }
+        : null,
       stats: {
         registrations: {
           total: totalRegistrations,

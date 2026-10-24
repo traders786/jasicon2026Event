@@ -3,6 +3,21 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
+interface ActiveEventInfo {
+  id: string;
+  title: string;
+  subtitle: string;
+  organizerName: string;
+  venue: string;
+  city: string;
+  ticketPrefix: string;
+  primaryColor: string;
+  accentColor: string;
+  stationsCount: number;
+  mealsCount: number;
+  sessionsCount: number;
+}
+
 interface DashboardStats {
   registrations: {
     total: number;
@@ -39,6 +54,7 @@ interface RecentLog {
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [activeEvent, setActiveEvent] = useState<ActiveEventInfo | null>(null);
   const [logs, setLogs] = useState<RecentLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +70,9 @@ export default function DashboardPage() {
         if (isMounted) {
           setStats(data.stats);
           setLogs(data.recentLogs || []);
+          if (data.event) {
+            setActiveEvent(data.event);
+          }
         }
       } catch (err: unknown) {
         if (isMounted) {
@@ -82,17 +101,18 @@ export default function DashboardPage() {
       {/* Event Header Banner (Clean White / Mint Theme) */}
       <div className="card dashboard-banner">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
             <span className="badge badge-available">● Active Conference</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              Deoghar, Jharkhand • 19 Entitlements Per Delegate
+              {activeEvent?.city || activeEvent?.venue || 'Conference Venue'} • {activeEvent?.stationsCount ?? 19} Entitlements Per Delegate
             </span>
           </div>
           <h1 className="dashboard-banner-title">
-            25th Annual Conference of JASICON 2026
+            {activeEvent?.title || 'Executive Event Dashboard'}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', marginTop: '6px' }}>
-            Jharkhand Chapter • Association of Surgeons of India (ASI) • Real-Time Attendance &amp; 19-Entitlement QR Tracking
+            {activeEvent?.subtitle || 'Annual Conference'}
+            {activeEvent?.organizerName ? ` • ${activeEvent.organizerName}` : ''} • Real-Time Attendance &amp; Entitlement QR Tracking
           </p>
         </div>
 
@@ -151,9 +171,11 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* 9 Meals Progress */}
+            {/* Meals Progress */}
             <div className="stat-card stat-meals">
-              <div className="stat-label">Meal Redemptions (9 Meals Max)</div>
+              <div className="stat-label">
+                Meal Redemptions ({activeEvent?.mealsCount ?? 9} Meals Max)
+              </div>
               <div className="stat-val">
                 {stats.meals.redeemed}{' '}
                 <span style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-dim)' }}>
@@ -171,9 +193,11 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* 10 Sessions Progress */}
+            {/* Sessions Progress */}
             <div className="stat-card stat-sessions">
-              <div className="stat-label">Session Check-Ins (10 Sessions)</div>
+              <div className="stat-label">
+                Session Check-Ins ({activeEvent?.sessionsCount ?? 10} Sessions)
+              </div>
               <div className="stat-val">
                 {stats.sessions.redeemed}{' '}
                 <span style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-dim)' }}>

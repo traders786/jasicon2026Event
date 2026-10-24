@@ -88,6 +88,7 @@ export async function GET(
           venue: registration.event.venue,
           startDate: registration.event.startDate,
           endDate: registration.event.endDate,
+          logoUrl: registration.event.logoUrl,
         },
         entitlements: registration.entitlements.map((e) => ({
           id: e.id,

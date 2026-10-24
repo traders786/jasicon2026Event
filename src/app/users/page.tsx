@@ -34,6 +34,8 @@ export default function UsersManagementPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [eventsList, setEventsList] = useState<any[]>([]);
+  const [activeEvent, setActiveEvent] = useState<any>(null);
+  const [selectedEventFilter, setSelectedEventFilter] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,38 +118,49 @@ export default function UsersManagementPage() {
       });
   }, [router]);
 
-  // Load all users & events
-  const loadUsers = useCallback(async () => {
+  // Load users & events strictly scoped by event
+  const loadUsers = useCallback(async (filterEventId?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const [usersRes, eventsRes] = await Promise.all([
-        fetch('/api/users'),
-        fetch('/api/events'),
-      ]);
 
+      const evRes = await fetch('/api/events');
+      let currentFilter = filterEventId !== undefined ? filterEventId : selectedEventFilter;
+
+      if (evRes.ok) {
+        const evData = await evRes.json();
+        const evList = evData.events || [];
+        setEventsList(evList);
+        const activeEv = evList.find((e: any) => e.isCurrentActive) || evList[0];
+        if (activeEv) {
+          setActiveEvent(activeEv);
+          if (!currentFilter) {
+            currentFilter = activeEv.id;
+            setSelectedEventFilter(activeEv.id);
+            setFormEventId(activeEv.id);
+          }
+        }
+      }
+
+      const queryUrl = currentFilter && currentFilter !== 'ALL'
+        ? `/api/users?eventId=${currentFilter}`
+        : '/api/users?eventId=ALL';
+
+      const usersRes = await fetch(queryUrl);
       if (usersRes.ok) {
         const data = await usersRes.json();
         setUsers(data.users || []);
-      }
-      if (eventsRes.ok) {
-        const evData = await eventsRes.json();
-        setEventsList(evData.events || []);
-        const activeEv = evData.events?.find((e: any) => e.isCurrentActive) || evData.events?.[0];
-        if (activeEv) {
-          setFormEventId((prev) => prev || activeEv.id);
-        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load staff accounts');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedEventFilter]);
 
   useEffect(() => {
     loadUsers();
-  }, [loadUsers]);
+  }, []);
 
   // Handle Add User Submit
   const handleAddUser = async (e: React.FormEvent) => {
@@ -409,6 +422,11 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
   // Filtered Users
   const filteredUsers = useMemo(() => {
     let result = users;
+    if (selectedEventFilter && selectedEventFilter !== 'ALL') {
+      result = result.filter(
+        (u) => u.assignedEventId === selectedEventFilter || u.role === 'ADMIN'
+      );
+    }
     if (selectedRoleFilter !== 'ALL') {
       result = result.filter((u) => u.role === selectedRoleFilter);
     }
@@ -419,7 +437,7 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
       );
     }
     return result;
-  }, [users, selectedRoleFilter, searchQuery]);
+  }, [users, selectedEventFilter, selectedRoleFilter, searchQuery]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -505,10 +523,10 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
       {/* Header Banner */}
       <div className="card dashboard-banner">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
             <span className="badge badge-available">● Staff &amp; Access Control</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              JASICON 2026 Administration
+              {activeEvent ? `${activeEvent.title} (${activeEvent.city || 'Active Event'})` : 'Conference Administration'}
             </span>
           </div>
           <h1 className="dashboard-banner-title">
@@ -538,7 +556,7 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
           </button>
           <button
             type="button"
-            onClick={loadUsers}
+            onClick={() => loadUsers()}
             className="btn btn-secondary"
             title="Refresh staff accounts list"
           >
@@ -610,10 +628,34 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
             )}
           </div>
 
+          {/* Conference Filter Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+              Conference:
+            </span>
+            <select
+              value={selectedEventFilter}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedEventFilter(val);
+                loadUsers(val);
+              }}
+              className="form-control"
+              style={{ fontWeight: 700, fontSize: '0.82rem', padding: '6px 12px', borderRadius: '10px', minWidth: '180px' }}
+            >
+              {eventsList.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.isCurrentActive ? `🏛️ ${ev.title} (Active)` : ev.title}
+                </option>
+              ))}
+              <option value="ALL">🌐 All Conferences (Global View)</option>
+            </select>
+          </div>
+
           {/* Role Filter Tabs */}
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {[
-              { id: 'ALL', label: 'All Staff' },
+              { id: 'ALL', label: 'All Roles' },
               { id: 'OPERATOR', label: 'Desk Operators' },
               { id: 'VENDOR', label: 'Vendors' },
               { id: 'ADMIN', label: 'Admins' },
@@ -643,7 +685,7 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--danger)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚠️</div>
             <div>{error}</div>
-            <button onClick={loadUsers} className="btn btn-secondary" style={{ marginTop: '1rem' }}>
+            <button onClick={() => loadUsers()} className="btn btn-secondary" style={{ marginTop: '1rem' }}>
               Try Again
             </button>
           </div>

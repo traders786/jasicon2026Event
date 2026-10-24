@@ -301,7 +301,12 @@ Organizing Committee, JASICON 2026`;
 
   // Reconciliation Modal State
   const [showReconcileModal, setShowReconcileModal] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('dismissed_reconcile_banner') === 'true';
+    }
+    return false;
+  });
   const [reconcileFile, setReconcileFile] = useState<File | null>(null);
   const [reconcileSheet, setReconcileSheet] = useState<string>('');
   const [reconcileLoading, setReconcileLoading] = useState(false);
@@ -677,7 +682,12 @@ Organizing Committee, JASICON 2026`;
               Reconcile Records Now
             </button>
             <button
-              onClick={() => setBannerDismissed(true)}
+              onClick={() => {
+                setBannerDismissed(true);
+                try {
+                  localStorage.setItem('dismissed_reconcile_banner', 'true');
+                } catch {}
+              }}
               className="btn btn-secondary btn-sm"
               style={{ color: '#92400e', padding: '4px 10px' }}
               title="Dismiss notice"

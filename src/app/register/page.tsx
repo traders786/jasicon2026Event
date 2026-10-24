@@ -7,6 +7,7 @@ interface EventItem {
   id: string;
   title: string;
   venue: string;
+  logoUrl?: string | null;
 }
 
 interface NewBadgeResult {
@@ -744,6 +745,7 @@ export default function RegisterPage() {
               event={{
                 title: selectedEvent?.title || 'JASICON 2026',
                 venue: selectedEvent?.venue || 'Deoghar, Jharkhand',
+                logoUrl: selectedEvent?.logoUrl || null,
               }}
               person={{
                 name: createdBadge.registration.person.name,

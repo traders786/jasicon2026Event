@@ -86,6 +86,7 @@ export default function ScannerPage() {
   const [currentUserName, setCurrentUserName] = useState<string>('');
   const [stationMode, setStationMode] = useState<boolean>(true);
   const [selectedStationCode, setSelectedStationCode] = useState<string>('MEAL_D1_LUNCH');
+  const [stationsList, setStationsList] = useState<Array<{ code: string; label: string; category: string; icon: string }>>(AUTHORIZED_STATIONS);
   const [stationTally, setStationTally] = useState<number>(0);
   const [stationResult, setStationResult] = useState<{
     status: 'SUCCESS' | 'ALREADY_REDEEMED' | 'INVALID' | 'ERROR';
@@ -97,6 +98,7 @@ export default function ScannerPage() {
 
   const stationModeRef = useRef<boolean>(true);
   const selectedStationCodeRef = useRef<string>('MEAL_D1_LUNCH');
+  const stationsListRef = useRef<Array<{ code: string; label: string; category: string; icon: string }>>(AUTHORIZED_STATIONS);
 
   useEffect(() => {
     stationModeRef.current = stationMode;
@@ -106,7 +108,11 @@ export default function ScannerPage() {
     selectedStationCodeRef.current = selectedStationCode;
   }, [selectedStationCode]);
 
-  // Load user role and enforce desk staff restriction
+  useEffect(() => {
+    stationsListRef.current = stationsList;
+  }, [stationsList]);
+
+  // Load user role and active event stations
   useEffect(() => {
     fetch('/api/auth/me')
       .then((res) => (res.ok ? res.json() : null))
@@ -120,6 +126,21 @@ export default function ScannerPage() {
           setCurrentUserName(d.user.name);
           if (d.user.role === 'VENDOR') {
             setStationMode(true);
+          }
+
+          // Dynamically load active event's stations!
+          const evStations = d.event?.stations;
+          if (Array.isArray(evStations) && evStations.length > 0) {
+            setStationsList(evStations);
+            stationsListRef.current = evStations;
+
+            if (d.user.assignedStationCode) {
+              setSelectedStationCode(d.user.assignedStationCode);
+              selectedStationCodeRef.current = d.user.assignedStationCode;
+            } else if (!evStations.some((s: any) => s.code === selectedStationCodeRef.current)) {
+              setSelectedStationCode(evStations[0].code);
+              selectedStationCodeRef.current = evStations[0].code;
+            }
           }
         }
       })
@@ -247,7 +268,9 @@ export default function ScannerPage() {
         });
 
         const resData = await res.json();
-        const stationDef = AUTHORIZED_STATIONS.find((s) => s.code === stationCode);
+        const stationDef =
+          stationsListRef.current.find((s) => s.code === stationCode) ||
+          AUTHORIZED_STATIONS.find((s) => s.code === stationCode);
 
         if (res.ok && resData.success) {
           playBeep();
@@ -771,20 +794,50 @@ export default function ScannerPage() {
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  <optgroup label="🍽️ Conference Meal Counters">
-                    {AUTHORIZED_STATIONS.filter((s) => s.category === 'MEAL').map((st) => (
-                      <option key={st.code} value={st.code}>
-                        {st.icon} {st.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="🎙️ Scientific Sessions & Workshops">
-                    {AUTHORIZED_STATIONS.filter((s) => s.category === 'SESSION').map((st) => (
-                      <option key={st.code} value={st.code}>
-                        {st.icon} {st.label}
-                      </option>
-                    ))}
-                  </optgroup>
+                  {stationsList.some((s) => s.category === 'MEAL') && (
+                    <optgroup label="🍽️ Conference Meal Counters">
+                      {stationsList
+                        .filter((s) => s.category === 'MEAL')
+                        .map((st) => (
+                          <option key={st.code} value={st.code}>
+                            {st.icon || '🍽️'} {st.label}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                  {stationsList.some((s) => s.category === 'SESSION') && (
+                    <optgroup label="🎙️ Scientific Sessions & Workshops">
+                      {stationsList
+                        .filter((s) => s.category === 'SESSION')
+                        .map((st) => (
+                          <option key={st.code} value={st.code}>
+                            {st.icon || '🎙️'} {st.label}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                  {stationsList.some((s) => s.category === 'KIT') && (
+                    <optgroup label="🎒 Delegate Kit & Distribution Counters">
+                      {stationsList
+                        .filter((s) => s.category === 'KIT')
+                        .map((st) => (
+                          <option key={st.code} value={st.code}>
+                            {st.icon || '🎒'} {st.label}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                  {stationsList.some((s) => !['MEAL', 'SESSION', 'KIT'].includes(s.category)) && (
+                    <optgroup label="🏢 Additional Entitlement Counters">
+                      {stationsList
+                        .filter((s) => !['MEAL', 'SESSION', 'KIT'].includes(s.category))
+                        .map((st) => (
+                          <option key={st.code} value={st.code}>
+                            {st.icon || '🏢'} {st.label}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
             </div>

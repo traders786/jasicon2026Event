@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin, hashPassword } from '@/lib/auth';
+import { ACTIVE_EVENT_COOKIE } from '@/lib/event-context';
+import { cookies } from 'next/headers';
 import { z } from 'zod';
 
 const CreateUserSchema = z.object({
@@ -24,14 +26,35 @@ const UpdateUserSchema = z.object({
   assignedStationCode: z.string().optional().nullable(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const auth = await requireAdmin();
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    const { searchParams } = new URL(request.url);
+    const requestedEventId = searchParams.get('eventId');
+    const cookieStore = await cookies();
+    const activeEventCookie = cookieStore.get(ACTIVE_EVENT_COOKIE)?.value;
+
+    const targetEventId =
+      requestedEventId !== null
+        ? requestedEventId === 'ALL'
+          ? null
+          : requestedEventId
+        : activeEventCookie;
+
+    const whereClause: any = {};
+    if (targetEventId) {
+      whereClause.OR = [
+        { assignedEventId: targetEventId },
+        { role: 'ADMIN' },
+      ];
+    }
+
     const users = await prisma.user.findMany({
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -108,6 +131,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const cookieStore = await cookies();
+    const activeEventCookie = cookieStore.get(ACTIVE_EVENT_COOKIE)?.value;
+    const finalEventId = parsed.data.assignedEventId || activeEventCookie || null;
+
     const user = await prisma.user.create({
       data: {
         name: parsed.data.name.trim(),
@@ -115,7 +142,7 @@ export async function POST(request: Request) {
         passwordHash: hashPassword(parsed.data.password),
         role: parsed.data.role,
         phone: parsed.data.phone || null,
-        assignedEventId: parsed.data.assignedEventId || null,
+        assignedEventId: finalEventId,
         assignedStationCode: parsed.data.assignedStationCode || null,
         isActive: true,
       },

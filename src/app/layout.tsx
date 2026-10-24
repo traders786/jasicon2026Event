@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { HeaderNav } from '@/components/HeaderNav';
+import { AppShell } from '@/components/AppShell';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '25th JASICON 2026 — Check-In & 19-Entitlement Platform',
-  description: '25th Annual State Conference of Jharkhand Chapter, Association of Surgeons of India (ASI). Real-time delegate attendance & 19-entitlement QR tracking.',
+  title: 'Evently — Multi-Conference Management & Entitlement Platform',
+  description: 'Enterprise event badge check-in, real-time delegate attendance & station entitlement tracking.',
 };
 
 export const viewport: Viewport = {
@@ -27,8 +27,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body>
-        <HeaderNav />
-        <main className="app-container">{children}</main>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

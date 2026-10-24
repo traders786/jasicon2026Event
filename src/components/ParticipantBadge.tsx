@@ -19,6 +19,7 @@ export interface ParticipantBadgeProps {
     venue: string;
     startDate?: string | Date;
     endDate?: string | Date;
+    logoUrl?: string | null;
   };
   qrDataUrl: string;
   qrPayload?: string;
@@ -128,28 +129,97 @@ export function ParticipantBadge({
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
+      .badge-header-with-logo {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 2mm !important;
+        padding: 2.5mm 3.5mm !important;
+      }
+      .badge-logo-container {
+        width: 12mm !important;
+        height: 12mm !important;
+        min-width: 12mm !important;
+        min-height: 12mm !important;
+        background: #ffffff !important;
+        border-radius: 2mm !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 1mm !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        flex-shrink: 0 !important;
+      }
+      .badge-header-spacer {
+        width: 12mm !important;
+        min-width: 12mm !important;
+        height: 1px !important;
+        visibility: hidden !important;
+        flex-shrink: 0 !important;
+      }
+      .badge-header-logo {
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain !important;
+        display: block !important;
+      }
+      .badge-header-content {
+        flex: 1 !important;
+        min-width: 0 !important;
+        text-align: center !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
       .badge-event-title {
-        font-size: 13pt;
+        font-size: 12.5pt;
         font-weight: 900;
         text-transform: uppercase;
         color: #ffffff !important;
-        line-height: 1.1;
+        line-height: 1.15;
+        text-align: center !important;
       }
       .badge-event-venue {
         font-size: 7.5pt;
         color: #c9ede8 !important;
         margin-top: 2px;
+        text-align: center !important;
       }
       .badge-category-strip {
-        width: 100%;
-        background: #d97706 !important;
+        width: 100% !important;
+        background: #059669 !important;
         color: #ffffff !important;
-        padding: 3px 0;
-        font-size: 7.5pt;
-        font-weight: 800;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        text-align: center;
+        height: 6.5mm !important;
+        line-height: 6.5mm !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        text-align: center !important;
+        overflow: hidden !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .badge-category-text {
+        display: block !important;
+        width: 100% !important;
+        height: 6.5mm !important;
+        line-height: 6.5mm !important;
+        font-size: 7.5pt !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.15em !important;
+        text-transform: uppercase !important;
+        color: #ffffff !important;
+        text-align: center !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
@@ -226,19 +296,6 @@ export function ParticipantBadge({
         color: #0d625e;
         letter-spacing: 0.08em;
         margin-top: 2px;
-      }
-      .badge-footer {
-        margin-top: auto;
-        padding: 4px 8px 0 8px;
-        width: 100%;
-        border-top: 1px dashed #cbd5e1;
-        text-align: center;
-      }
-      .badge-security-text {
-        font-size: 5.5pt;
-        font-weight: 700;
-        color: #94a3b8;
-        text-transform: uppercase;
       }
       .no-print, .badge-lanyard-slot {
         display: none !important;
@@ -436,15 +493,187 @@ Organizing Committee, JASICON 2026`;
           {/* Lanyard punch guide */}
           <div className="badge-lanyard-slot no-print" title="Lanyard Hole Punch Indicator" />
 
-          {/* Badge Header: Event Branding */}
-          <div className="badge-header">
-            <div className="badge-event-title">{event.title || 'JASICON 2026'}</div>
-            <div className="badge-event-venue">{event.venue || 'Annual State Conference'}</div>
-          </div>
+          {/* Badge Header: Event Branding (Dynamic Logo + Name or Clean Text) */}
+          {event.logoUrl ? (
+            <div
+              className="badge-header badge-header-with-logo"
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+                padding: '0.9rem 1.1rem 0.8rem 1.1rem',
+                backgroundColor: '#0d625e',
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+            >
+              <div
+                className="badge-logo-container"
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  minWidth: '48px',
+                  minHeight: '48px',
+                  background: '#ffffff',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '4px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+                  overflow: 'hidden',
+                  boxSizing: 'border-box',
+                  flexShrink: 0,
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={event.logoUrl}
+                  alt={event.title || 'Conference Logo'}
+                  className="badge-header-logo"
+                  crossOrigin="anonymous"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain',
+                    display: 'block',
+                  }}
+                />
+              </div>
+              <div
+                className="badge-header-content"
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                }}
+              >
+                <div
+                  className="badge-event-title"
+                  style={{
+                    fontSize: '1.35rem',
+                    fontWeight: 900,
+                    letterSpacing: '-0.01em',
+                    textTransform: 'uppercase',
+                    color: '#ffffff',
+                    lineHeight: 1.15,
+                    textAlign: 'center',
+                  }}
+                >
+                  {event.title || 'CONFERENCE 2026'}
+                </div>
+                <div
+                  className="badge-event-venue"
+                  style={{
+                    fontSize: '0.8rem',
+                    color: '#c9ede8',
+                    fontWeight: 500,
+                    marginTop: '2px',
+                    textAlign: 'center',
+                  }}
+                >
+                  {event.venue || 'Annual State Conference'}
+                </div>
+              </div>
+              <div
+                className="badge-header-spacer"
+                aria-hidden="true"
+                style={{
+                  width: '48px',
+                  minWidth: '48px',
+                  height: '1px',
+                  visibility: 'hidden',
+                  flexShrink: 0,
+                }}
+              />
+            </div>
+          ) : (
+            <div
+              className="badge-header"
+              style={{
+                width: '100%',
+                backgroundColor: '#0d625e',
+                color: '#ffffff',
+                padding: '1.2rem 1rem 0.9rem 1rem',
+                textAlign: 'center',
+                boxSizing: 'border-box',
+              }}
+            >
+              <div
+                className="badge-event-title"
+                style={{
+                  fontSize: '1.35rem',
+                  fontWeight: 900,
+                  letterSpacing: '-0.01em',
+                  textTransform: 'uppercase',
+                  color: '#ffffff',
+                  lineHeight: 1.15,
+                  textAlign: 'center',
+                }}
+              >
+                {event.title || 'JASICON 2026'}
+              </div>
+              <div
+                className="badge-event-venue"
+                style={{
+                  fontSize: '0.8rem',
+                  color: '#c9ede8',
+                  fontWeight: 500,
+                  marginTop: '2px',
+                  textAlign: 'center',
+                }}
+              >
+                {event.venue || 'Annual State Conference'}
+              </div>
+            </div>
+          )}
 
-          {/* Category Ribbon */}
-          <div className="badge-category-strip">
-            <span className="badge-category-text">{category}</span>
+          {/* Category Ribbon (Vertically Centered across Screen, html2canvas, and Print) */}
+          <div
+            className="badge-category-strip"
+            style={{
+              width: '100%',
+              backgroundColor: '#059669',
+              color: '#ffffff',
+              height: '28px',
+              lineHeight: '28px',
+              textAlign: 'center',
+              boxSizing: 'border-box',
+              padding: 0,
+              margin: 0,
+              overflow: 'hidden',
+              display: 'block',
+            }}
+          >
+            <span
+              className="badge-category-text"
+              style={{
+                display: 'block',
+                width: '100%',
+                height: '28px',
+                lineHeight: '28px',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                color: '#ffffff',
+                textAlign: 'center',
+                margin: 0,
+                padding: 0,
+                border: 'none',
+                background: 'transparent',
+                boxShadow: 'none',
+                borderRadius: 0,
+              }}
+            >
+              {category}
+            </span>
           </div>
 
           {/* Attendee Photo / Avatar */}
@@ -485,13 +714,6 @@ Organizing Committee, JASICON 2026`;
               </div>
             )}
             <div className="badge-ticket-code">{ticketCode}</div>
-          </div>
-
-          {/* Badge Footer */}
-          <div className="badge-footer">
-            <div className="badge-security-text">
-              OFFICIAL EVENT ACCESS BADGE • SCAN AT ENTRANCE, MEALS &amp; SESSIONS
-            </div>
           </div>
         </div>
       </div>

@@ -47,6 +47,7 @@ export interface ParticipantDetailData {
     venue: string;
     startDate: string;
     endDate: string;
+    logoUrl?: string | null;
   };
   entitlements: EntitlementItem[];
   meals: EntitlementItem[];
@@ -1100,7 +1101,7 @@ Organizing Committee, JASICON 2026`;
             event={data.event}
             qrDataUrl={data.qrDataUrl}
             qrPayload={data.qrPayload}
-            category="DELEGATE"
+            category={data.person.jobTitle || 'DELEGATE'}
           />
         </div>
       )}
