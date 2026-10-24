@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 
 interface EventOption {
   id: string;
@@ -52,7 +52,7 @@ interface AuditLogItem {
   notes: string;
 }
 
-export default function AuditPage() {
+function AuditPageContent() {
   const [events, setEvents] = useState<EventOption[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [currentEvent, setCurrentEvent] = useState<EventOption | null>(null);
@@ -61,6 +61,7 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(true);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [currentDateStr, setCurrentDateStr] = useState('');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,6 +94,7 @@ export default function AuditPage() {
   };
 
   useEffect(() => {
+    setCurrentDateStr(new Date().toLocaleString());
     void fetchAuditData();
   }, []);
 
@@ -717,7 +719,7 @@ export default function AuditPage() {
             </div>
           </div>
           <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
-            <div><strong>Generated:</strong> {new Date().toLocaleString()}</div>
+            <div><strong>Generated:</strong> {currentDateStr || 'Official Record'}</div>
             <div><strong>Status:</strong> Official Audit Record</div>
             <div><strong>Scope:</strong> Complete Entitlement Ledger</div>
           </div>
@@ -835,5 +837,13 @@ export default function AuditPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuditPage() {
+  return (
+    <Suspense fallback={<div style={{ textAlign: 'center', padding: '3.5rem', color: 'var(--text-muted)' }}>Loading audit records...</div>}>
+      <AuditPageContent />
+    </Suspense>
   );
 }
