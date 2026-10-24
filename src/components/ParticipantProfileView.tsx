@@ -344,6 +344,14 @@ export function ParticipantProfileView({
       }
     } else {
       setActiveTab('badge');
+      setTimeout(() => {
+        const printBtn = document.querySelector('.badge-toolbar button.btn-primary') as HTMLButtonElement | null;
+        if (printBtn) {
+          printBtn.click();
+        } else {
+          window.print();
+        }
+      }, 150);
     }
   };
 
@@ -369,26 +377,24 @@ export function ParticipantProfileView({
 
     const text = `Dear ${displayName},
 
-Greetings from JASICON 2026, Deoghar.
+Greetings from JASICON 2026! 🏥✨
+Here are your official conference registration and digital badge details:
 
-Your registration for the 25th Annual Conference of ASI (Jharkhand Chapter) is confirmed.
+📋 Delegate: ${displayName}
+🎫 Ticket Code: ${data.ticketCode}
+🏛️ Conference: 25th Annual State Conference of JASICON 2026
+📍 Venue: Deoghar, Jharkhand
+✅ Status: CONFIRMED
 
-Registration Details:
-• Delegate: ${displayName}
-• Category: ${categoryText}
-• Reg No: ${data.ticketCode}
-• Venue: Deoghar, Jharkhand
-
-Access your Digital Badge & Entry QR Code:
+📱 View & Download your Digital Badge & QR Code online:
 ${badgeUrl}
 
-Please show this QR code at the registration desk for express check-in, conference kit, and meal access.
+Please present your QR code at the registration desk for quick check-in and access to conference meals & academic sessions.
 
 Warm regards,
-Organizing Committee
-JASICON 2026, Deoghar`;
+Organizing Committee, JASICON 2026`;
 
-    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
   if (loading) {
@@ -422,9 +428,25 @@ JASICON 2026, Deoghar`;
     .join('');
 
   return (
-    <div className="profile-container">
+    <div className="profile-container" style={{ position: 'relative' }}>
+      {/* Dedicated Top-Right Close Button */}
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="modal-top-close-btn no-print"
+          title="Close (Esc)"
+          aria-label="Close Profile"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      )}
+
       {/* Top Banner / Header Card */}
-      <div className="profile-header-card no-print">
+      <div className="profile-header-card no-print" style={{ paddingRight: '2.5rem' }}>
         <div className="profile-header-main">
           {/* Avatar / Photo with upload trigger */}
           <div className="profile-avatar-container">
@@ -561,12 +583,6 @@ JASICON 2026, Deoghar`;
               >
                 <span>🗑️</span>
                 <span>Delete</span>
-              </button>
-            )}
-
-            {onClose && (
-              <button onClick={onClose} className="btn btn-secondary" title="Close Profile">
-                ✕
               </button>
             )}
           </div>

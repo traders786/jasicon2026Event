@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { generateCsv } from '@/lib/csv';
 
 import { requireAdmin } from '@/lib/auth';
+import { getEventContext } from '@/lib/event-context';
 
 export async function GET(request: Request) {
   try {
@@ -16,14 +17,19 @@ export async function GET(request: Request) {
 
     let eventId = eventIdParam;
     if (!eventId) {
-      const activeEvent = await prisma.event.findFirst({
-        where: { isActive: true },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (!activeEvent) {
-        return NextResponse.json({ error: 'No active event found' }, { status: 404 });
+      const eventCtx = await getEventContext();
+      if (eventCtx) {
+        eventId = eventCtx.eventId;
+      } else {
+        const activeEvent = await prisma.event.findFirst({
+          where: { isActive: true },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (!activeEvent) {
+          return NextResponse.json({ error: 'No active event found' }, { status: 404 });
+        }
+        eventId = activeEvent.id;
       }
-      eventId = activeEvent.id;
     }
 
     const registrations = await prisma.eventRegistration.findMany({

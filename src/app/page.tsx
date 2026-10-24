@@ -103,6 +103,9 @@ export default function DashboardPage() {
           <Link href="/register" className="btn btn-secondary">
             <span>+</span> New Registration
           </Link>
+          <Link href="/users" className="btn btn-secondary">
+            <span>🛡️</span> Staff Accounts
+          </Link>
         </div>
       </div>
 

@@ -1,13 +1,26 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getSession } from '@/lib/auth';
+import { getEventContext } from '@/lib/event-context';
 
 export async function GET(request: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
-    const eventId = searchParams.get('eventId');
+    const eventCtx = await getEventContext();
+
+    // If Super Admin, allow query param override; otherwise strictly lock to eventCtx.eventId
+    const targetEventId =
+      session.role === 'ADMIN'
+        ? (searchParams.get('eventId') || eventCtx?.eventId)
+        : eventCtx?.eventId;
 
     // Build event filter
-    const eventFilter = eventId ? { eventId } : {};
+    const eventFilter = targetEventId ? { eventId: targetEventId } : {};
 
     // 1. Total registrations & check-in counts
     const totalRegistrations = await prisma.eventRegistration.count({

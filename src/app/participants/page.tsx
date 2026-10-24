@@ -249,26 +249,24 @@ export default function ParticipantsPage() {
 
     const text = `Dear ${displayName},
 
-Greetings from JASICON 2026, Deoghar.
+Greetings from JASICON 2026! 🏥✨
+Here are your official conference registration and digital badge details:
 
-Your registration for the 25th Annual Conference of ASI (Jharkhand Chapter) is confirmed.
+📋 Delegate: ${displayName}
+🎫 Ticket Code: ${p.ticketCode}
+🏛️ Conference: 25th Annual State Conference of JASICON 2026
+📍 Venue: Deoghar, Jharkhand
+✅ Status: CONFIRMED
 
-Registration Details:
-• Delegate: ${displayName}
-• Category: ${categoryText}
-• Reg No: ${p.ticketCode}
-• Venue: Deoghar, Jharkhand
-
-Access your Digital Badge & Entry QR Code:
+📱 View & Download your Digital Badge & QR Code online:
 ${badgeUrl}
 
-Please show this QR code at the registration desk for express check-in, conference kit, and meal access.
+Please present your QR code at the registration desk for quick check-in and access to conference meals & academic sessions.
 
 Warm regards,
-Organizing Committee
-JASICON 2026, Deoghar`;
+Organizing Committee, JASICON 2026`;
 
-    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
   // Close profile modal on Escape
@@ -906,7 +904,7 @@ JASICON 2026, Deoghar`;
               </thead>
               <tbody>
                 {participants.map((p) => {
-                  const isPlaceholder = p.person.name === 'Guest Participant' || p.person.email.includes('@attendee.eventcheck.local');
+                  const isPlaceholder = p.person.name === 'Guest Participant' || p.person.name.toLowerCase().startsWith('guest') || !p.person.name.trim();
                   const initials = p.person.name
                     .split(' ')
                     .filter(Boolean)
@@ -1252,8 +1250,8 @@ JASICON 2026, Deoghar`;
             }}
           >
             {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div style={{ flex: 1, paddingRight: '0.5rem' }}>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-heading)' }}>
                   Bulk Import Participants
                 </h3>
@@ -1265,8 +1263,25 @@ JASICON 2026, Deoghar`;
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => setShowImportModal(false)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  alignSelf: 'flex-start',
+                  cursor: 'pointer',
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  lineHeight: 1.2,
+                }}
+                aria-label="Close"
               >
-                ✕ Close
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Close</span>
               </button>
             </div>
 
@@ -1590,8 +1605,8 @@ JASICON 2026, Deoghar`;
             }}
           >
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div style={{ flex: 1, paddingRight: '0.5rem' }}>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>⚡</span> Safe Participant Reconciliation
                 </h3>
@@ -1603,8 +1618,25 @@ JASICON 2026, Deoghar`;
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => setShowReconcileModal(false)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  alignSelf: 'flex-start',
+                  cursor: 'pointer',
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  lineHeight: 1.2,
+                }}
+                aria-label="Close"
               >
-                ✕ Close
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Close</span>
               </button>
             </div>
 

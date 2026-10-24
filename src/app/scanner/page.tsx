@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import jsQR from 'jsqr';
 
 interface DetectedBarcode {
@@ -72,6 +74,7 @@ const AUTHORIZED_STATIONS = [
 ];
 
 export default function ScannerPage() {
+  const router = useRouter();
   const [tokenInput, setTokenInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<LookupResult | null>(null);
@@ -103,12 +106,16 @@ export default function ScannerPage() {
     selectedStationCodeRef.current = selectedStationCode;
   }, [selectedStationCode]);
 
-  // Load user role
+  // Load user role and enforce desk staff restriction
   useEffect(() => {
     fetch('/api/auth/me')
       .then((res) => (res.ok ? res.json() : null))
       .then((d) => {
         if (d?.authenticated && d.user) {
+          if (d.user.role === 'OPERATOR') {
+            router.replace('/participants');
+            return;
+          }
           setCurrentUserRole(d.user.role);
           setCurrentUserName(d.user.name);
           if (d.user.role === 'VENDOR') {
@@ -117,7 +124,7 @@ export default function ScannerPage() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [router]);
 
   // Camera Scanner State
   const [cameraActive, setCameraActive] = useState(false);
@@ -676,6 +683,23 @@ export default function ScannerPage() {
     }
   };
 
+  if (currentUserRole === 'OPERATOR') {
+    return (
+      <div style={{ textAlign: 'center', padding: '4rem 1rem', maxWidth: '520px', margin: '2rem auto' }} className="card">
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚫</div>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-heading)' }}>
+          Scanner Access Restricted
+        </h2>
+        <p style={{ color: 'var(--text-muted)', marginTop: '0.65rem', marginBottom: '1.5rem', fontSize: '0.92rem', lineHeight: 1.5 }}>
+          Registration desk staff accounts are not authorized to operate QR scanner stations. Please proceed to the participants management dashboard.
+        </p>
+        <Link href="/participants" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <span>👥</span> Return to Participants
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1100px', margin: '0 auto' }}>
       {/* Header Title */}
@@ -697,10 +721,11 @@ export default function ScannerPage() {
           border: '1.5px solid var(--border-color)',
           background: 'linear-gradient(to right, #f8fafc, #ffffff)',
           padding: '1.15rem 1.35rem',
+          overflow: 'hidden',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', width: '100%', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 280px', minWidth: 0, maxWidth: '100%' }}>
             <div
               style={{
                 width: '44px',
@@ -718,11 +743,11 @@ export default function ScannerPage() {
             >
               🏢
             </div>
-            <div>
+            <div style={{ flex: 1, minWidth: 0, maxWidth: '100%' }}>
               <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 {currentUserRole === 'VENDOR' ? 'Your Assigned Counter' : 'Operating Counter'}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+              <div style={{ width: '100%', minWidth: 0, maxWidth: '100%', marginTop: '3px' }}>
                 <select
                   value={selectedStationCode}
                   onChange={(e) => {
@@ -730,15 +755,20 @@ export default function ScannerPage() {
                     setStationResult(null);
                   }}
                   style={{
-                    padding: '7px 14px',
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
+                    boxSizing: 'border-box',
+                    padding: '8px 12px',
                     borderRadius: '8px',
                     border: '1.5px solid var(--primary)',
                     background: 'white',
                     color: 'var(--text-heading)',
-                    fontSize: '0.92rem',
+                    fontSize: '0.9rem',
                     fontWeight: 700,
                     outline: 'none',
                     cursor: 'pointer',
+                    textOverflow: 'ellipsis',
                   }}
                 >
                   <optgroup label="🍽️ Conference Meal Counters">

@@ -221,6 +221,19 @@ export default function BackendDetailsPage() {
                   Zero-PII SHA-256 tokens
                 </div>
               </div>
+
+              <div className="stat-card">
+                <div className="stat-label">Staff User Accounts</div>
+                <div className="stat-val">{data.counts.users}</div>
+                <div className="stat-sub">
+                  Admins, Desk Operators &amp; Vendors
+                </div>
+                <div style={{ marginTop: '8px' }}>
+                  <Link href="/users" style={{ fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline' }}>
+                    Manage Staff Accounts →
+                  </Link>
+                </div>
+              </div>
             </div>
 
             {/* Technical Connection Details & File Locations */}

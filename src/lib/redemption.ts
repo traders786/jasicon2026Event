@@ -8,6 +8,8 @@ export interface RedemptionRequest {
   operatorId?: string;
   deviceInfo?: string;
   ipAddress?: string;
+  expectedEventId?: string;
+  allowedStationCode?: string;
 }
 
 export interface RedemptionResponse {
@@ -101,8 +103,8 @@ export async function resolveRegistration(rawInput: string) {
     orClauses.push({ qrTokenHash: hashQrToken(trimmed) });
   }
 
-  // E. Ticket code check (e.g. EC-2026-0008 or EC-...)
-  if (/^EC-[A-Za-z0-9_-]+$/i.test(trimmed)) {
+  // E. Ticket code check (e.g. EC-2026-0008, JASI-2026-0008, DOSCON-2026-0001)
+  if (/^[A-Za-z0-9]+-[A-Za-z0-9_-]+$/i.test(trimmed)) {
     orClauses.push({ ticketCode: { equals: trimmed, mode: 'insensitive' } });
   }
 
@@ -126,12 +128,16 @@ export async function resolveRegistration(rawInput: string) {
 }
 
 /**
- * Look up registration and all 19 entitlements from a scanned QR token or ticket code.
+ * Look up registration and all entitlements from a scanned QR token or ticket code.
  */
-export async function lookupByQrToken(qrToken: string) {
+export async function lookupByQrToken(qrToken: string, expectedEventId?: string) {
   const registration = await resolveRegistration(qrToken);
 
   if (!registration) {
+    return null;
+  }
+
+  if (expectedEventId && registration.eventId !== expectedEventId) {
     return null;
   }
 
@@ -174,6 +180,24 @@ export async function redeemEntitlement(
       success: false,
       result: RedemptionResult.INVALID_QR,
       message: 'Invalid QR code or ticket. No active registration matches this token.',
+    };
+  }
+
+  // 1b. Event scoping check
+  if (req.expectedEventId && registration.eventId !== req.expectedEventId) {
+    return {
+      success: false,
+      result: RedemptionResult.INVALID_QR,
+      message: 'Access Denied: This attendee badge is registered for another conference.',
+    };
+  }
+
+  // 1c. Station vendor lock check
+  if (req.allowedStationCode && req.entitlementCode !== req.allowedStationCode) {
+    return {
+      success: false,
+      result: RedemptionResult.REVOKED,
+      message: `Access Denied: Your account is restricted to operating station: ${req.allowedStationCode}.`,
     };
   }
 

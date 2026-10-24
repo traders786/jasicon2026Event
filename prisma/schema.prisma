@@ -48,16 +48,22 @@ enum RedemptionResult {
 
 // System Users (Staff, Scanners, Admins)
 model User {
-  id           String          @id @default(uuid())
-  email        String          @unique
-  name         String
-  passwordHash String
-  role         Role            @default(OPERATOR)
-  isActive     Boolean         @default(true)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  redemptions  RedemptionLog[]
+  id                  String          @id @default(uuid())
+  email               String          @unique
+  name                String
+  passwordHash        String
+  role                Role            @default(OPERATOR)
+  isActive            Boolean         @default(true)
+  phone               String?
+  assignedEventId     String?
+  assignedStationCode String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
+  assignedEvent       Event?          @relation(fields: [assignedEventId], references: [id], onDelete: SetNull)
+  redemptions         RedemptionLog[]
+
+  @@index([assignedEventId])
   @@map("users")
 }
 
@@ -80,17 +86,35 @@ model Person {
 
 // Event definition
 model Event {
-  id            String              @id @default(uuid())
-  title         String
-  slug          String              @unique
-  description   String?
-  venue         String
-  startDate     DateTime
-  endDate       DateTime
-  isActive      Boolean             @default(true)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  registrations EventRegistration[]
+  id               String              @id @default(uuid())
+  title            String
+  slug             String              @unique
+  subtitle         String?
+  organizerName    String?
+  description      String?
+  venue            String
+  city             String?
+  state            String?
+  startDate        DateTime
+  endDate          DateTime
+  isActive         Boolean             @default(true)
+  ticketPrefix     String              @default("JC-2026")
+
+  // Visual Branding
+  logoUrl          String?
+  organizerLogoUrl String?
+  primaryColor     String              @default("#0d625e")
+  accentColor      String              @default("#10b981")
+
+  // Customization JSON Configs
+  categories       Json?
+  stations         Json?
+  whatsappTemplate String?
+
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  registrations    EventRegistration[]
+  users            User[]
 
   @@map("events")
 }

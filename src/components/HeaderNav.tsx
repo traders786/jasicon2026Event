@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { UserNav } from '@/components/UserNav';
+import { EventSwitcher } from '@/components/EventSwitcher';
 
 export function HeaderNav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -34,6 +35,8 @@ export function HeaderNav() {
   }, [mobileMenuOpen]);
 
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [activeEvent, setActiveEvent] = useState<any>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -42,8 +45,12 @@ export function HeaderNav() {
       .then((d) => {
         if (isMounted && d?.authenticated && d.user?.role) {
           setUserRole(d.user.role);
+          setIsSuperAdmin(d.isSuperAdmin || d.user.role === 'ADMIN');
+          setActiveEvent(d.event || null);
         } else if (isMounted) {
           setUserRole(null);
+          setIsSuperAdmin(false);
+          setActiveEvent(null);
         }
       })
       .catch(() => {});
@@ -67,7 +74,6 @@ export function HeaderNav() {
     if (userRole === 'OPERATOR') {
       return [
         { href: '/participants', label: 'Participants', icon: '👥' },
-        { href: '/scanner', label: 'QR Scanner', icon: '📷' },
         { href: '/register', label: 'New Registration', icon: '➕' },
       ];
     }
@@ -77,6 +83,8 @@ export function HeaderNav() {
       { href: '/participants', label: 'Participants', icon: '👥' },
       { href: '/scanner', label: 'QR Scanner', icon: '📷' },
       { href: '/register', label: 'New Registration', icon: '➕' },
+      { href: '/events', label: 'Event Studio', icon: '🎨' },
+      { href: '/users', label: 'Staff Accounts', icon: '🛡️' },
       { href: '/audit', label: 'Audit History', icon: '🕒' },
       { href: '/backend', label: 'Backend Details', icon: '⚙️' },
     ];
@@ -87,7 +95,7 @@ export function HeaderNav() {
       <div className="nav-inner">
         {/* Clean Evently Brand Group */}
         <Link
-          href={userRole === 'VENDOR' ? '/scanner' : userRole ? '/' : '/login'}
+          href={userRole === 'VENDOR' ? '/scanner' : userRole === 'OPERATOR' ? '/participants' : userRole ? '/' : '/login'}
           className="brand-group"
           onClick={() => setMobileMenuOpen(false)}
         >
@@ -122,22 +130,17 @@ export function HeaderNav() {
           </nav>
         )}
 
-        {/* Header Right Cluster: Status + UserNav + Mobile Hamburger */}
+        {/* Header Right Cluster: Event Switcher + UserNav + Mobile Hamburger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Status badge: Hidden on medium/small screens, visible on large desktop */}
-          <span className="desktop-status-pill">
-            <span
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: 'var(--accent)',
-                boxShadow: '0 0 6px var(--accent)',
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ whiteSpace: 'nowrap' }}>JASICON 2026</span>
-          </span>
+          {!isLoginPage && userRole && (
+            <div className="desktop-status-pill" style={{ display: 'flex', alignItems: 'center' }}>
+              <EventSwitcher
+                isSuperAdmin={isSuperAdmin}
+                activeEventTitle={activeEvent?.title}
+                activeEventCity={activeEvent?.city}
+              />
+            </div>
+          )}
 
           <div className="desktop-usernav-wrap">
             <UserNav />
@@ -207,7 +210,7 @@ export function HeaderNav() {
                     Evently
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    JASICON 2026 • Delegate Management
+                    {activeEvent?.title || 'Delegate Management'}
                   </div>
                 </div>
               </div>
@@ -219,6 +222,15 @@ export function HeaderNav() {
               >
                 ✕
               </button>
+            </div>
+
+            {/* Mobile Event Switcher / Status Pill */}
+            <div style={{ padding: '0.25rem 0' }}>
+              <EventSwitcher
+                isSuperAdmin={isSuperAdmin}
+                activeEventTitle={activeEvent?.title}
+                activeEventCity={activeEvent?.city}
+              />
             </div>
 
             {/* Mobile Nav Links */}
@@ -269,15 +281,15 @@ export function HeaderNav() {
                   border: '1px solid var(--border-subtle)',
                 }}
               >
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Database Connection:</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Cloud Database:</span>
                 <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent)' }} />
-                  PostgreSQL (Port 5433)
+                  PostgreSQL (Neon)
                 </span>
               </div>
 
-              <div>
-                <UserNav />
+              <div style={{ position: 'relative', width: '100%' }}>
+                <UserNav isMobile dropUp />
               </div>
             </div>
           </div>

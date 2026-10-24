@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { renderQrCodeDataUrl } from '@/lib/qr';
 import { RegistrationStatus } from '@prisma/client';
 import { requireAdmin } from '@/lib/auth';
+import { getEventContext } from '@/lib/event-context';
 
 export async function GET(
   _request: Request,
@@ -43,6 +44,14 @@ export async function GET(
 
     if (!registration) {
       return NextResponse.json({ error: 'Participant registration not found' }, { status: 404 });
+    }
+
+    const eventCtx = await getEventContext();
+    if (eventCtx && registration.eventId !== eventCtx.eventId) {
+      return NextResponse.json(
+        { error: 'Access Denied: Participant does not belong to your active conference.' },
+        { status: 403 }
+      );
     }
 
     // Standardized badge payload that works natively with the scanner
@@ -128,6 +137,14 @@ export async function PATCH(
 
     if (!registration) {
       return NextResponse.json({ error: 'Participant registration not found' }, { status: 404 });
+    }
+
+    const eventCtx = await getEventContext();
+    if (eventCtx && registration.eventId !== eventCtx.eventId) {
+      return NextResponse.json(
+        { error: 'Access Denied: Participant does not belong to your active conference.' },
+        { status: 403 }
+      );
     }
 
     // 1. Update Person fields if provided

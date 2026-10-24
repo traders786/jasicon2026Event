@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { lookupByQrToken } from '@/lib/redemption';
+import { getSession } from '@/lib/auth';
+import { getEventContext } from '@/lib/event-context';
 import { z } from 'zod';
 
 const LookupSchema = z.object({
@@ -8,16 +10,33 @@ const LookupSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    if (session.role === 'OPERATOR') {
+      return NextResponse.json(
+        { error: 'Access Denied: Registration desk staff accounts are not authorized to use scanner services.' },
+        { status: 403 }
+      );
+    }
+
+    const eventCtx = await getEventContext();
+    if (!eventCtx) {
+      return NextResponse.json({ error: 'No active or assigned event context found.' }, { status: 403 });
+    }
+
     const body = await request.json();
     const parsed = LookupSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: 'Valid QR token is required' }, { status: 400 });
     }
 
-    const data = await lookupByQrToken(parsed.data.qrToken);
+    const data = await lookupByQrToken(parsed.data.qrToken, eventCtx.eventId);
     if (!data) {
       return NextResponse.json(
-        { error: 'No matching active registration found for this QR code.' },
+        { error: 'No matching active registration found for this QR code in this conference.' },
         { status: 404 }
       );
     }

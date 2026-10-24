@@ -4,6 +4,7 @@ import { parseSpreadsheet } from '@/lib/spreadsheet';
 import { ALL_ENTITLEMENT_DEFINITIONS } from '@/lib/constants';
 import { generateSecureQrToken } from '@/lib/qr';
 import { requireAdmin } from '@/lib/auth';
+import { getEventContext } from '@/lib/event-context';
 
 export async function POST(request: Request) {
   try {
@@ -57,15 +58,27 @@ export async function POST(request: Request) {
 
     // 1. Resolve active Event
     let eventId = reqEventId;
-    if (!eventId) {
-      const activeEvent = await prisma.event.findFirst({
+    let eventRecord = null;
+    if (eventId) {
+      eventRecord = await prisma.event.findUnique({ where: { id: eventId } });
+    }
+    if (!eventRecord) {
+      const eventCtx = await getEventContext();
+      if (eventCtx) {
+        eventId = eventCtx.eventId;
+        eventRecord = eventCtx.event;
+      }
+    }
+    if (!eventRecord || !eventId) {
+      const fallbackEvent = await prisma.event.findFirst({
         where: { isActive: true },
         orderBy: { createdAt: 'desc' },
       });
-      if (!activeEvent) {
+      if (!fallbackEvent) {
         return NextResponse.json({ error: 'No active event found. Please configure an active event.' }, { status: 404 });
       }
-      eventId = activeEvent.id;
+      eventId = fallbackEvent.id;
+      eventRecord = fallbackEvent;
     }
 
     // 2. Parse spreadsheet using universal engine
@@ -167,8 +180,14 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const ticketCode = `EC-${new Date().getFullYear()}-${String(nextTicketNumber++).padStart(4, '0')}`;
+        const prefix = (eventRecord as any)?.ticketPrefix || 'EC-2026';
+        const ticketCode = `${prefix}-${String(nextTicketNumber++).padStart(4, '0')}`;
         const { tokenHash } = generateSecureQrToken();
+
+        const stationsList =
+          Array.isArray((eventRecord as any)?.stations) && (eventRecord as any).stations.length > 0
+            ? (eventRecord as any).stations
+            : ALL_ENTITLEMENT_DEFINITIONS;
 
         await prisma.eventRegistration.create({
           data: {
@@ -178,10 +197,10 @@ export async function POST(request: Request) {
             qrTokenHash: tokenHash,
             status: 'CONFIRMED',
             entitlements: {
-              create: ALL_ENTITLEMENT_DEFINITIONS.map((def) => ({
+              create: stationsList.map((def: any) => ({
                 code: def.code,
-                title: def.title,
-                category: def.category,
+                title: def.label || def.title,
+                category: def.category || (def.code.includes('MEAL') ? 'MEAL' : 'SESSION'),
                 status: 'AVAILABLE' as const,
                 version: 0,
               })),

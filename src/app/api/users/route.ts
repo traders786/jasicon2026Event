@@ -8,6 +8,9 @@ const CreateUserSchema = z.object({
   email: z.string().email('Valid email is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   role: z.enum(['ADMIN', 'OPERATOR', 'VENDOR', 'VOLUNTEER']),
+  phone: z.string().optional(),
+  assignedEventId: z.string().uuid().optional().nullable(),
+  assignedStationCode: z.string().optional().nullable(),
 });
 
 const UpdateUserSchema = z.object({
@@ -16,6 +19,9 @@ const UpdateUserSchema = z.object({
   name: z.string().min(2).optional(),
   password: z.string().min(6).optional(),
   role: z.enum(['ADMIN', 'OPERATOR', 'VENDOR', 'VOLUNTEER']).optional(),
+  phone: z.string().optional().nullable(),
+  assignedEventId: z.string().uuid().optional().nullable(),
+  assignedStationCode: z.string().optional().nullable(),
 });
 
 export async function GET() {
@@ -31,8 +37,18 @@ export async function GET() {
         id: true,
         email: true,
         name: true,
+        phone: true,
         role: true,
         isActive: true,
+        assignedEventId: true,
+        assignedStationCode: true,
+        assignedEvent: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -47,8 +63,12 @@ export async function GET() {
       id: u.id,
       email: u.email,
       name: u.name,
+      phone: u.phone,
       role: u.role,
       isActive: u.isActive,
+      assignedEventId: u.assignedEventId,
+      assignedStationCode: u.assignedStationCode,
+      assignedEvent: u.assignedEvent,
       createdAt: u.createdAt,
       redemptionsCount: u._count.redemptions,
     }));
@@ -94,13 +114,25 @@ export async function POST(request: Request) {
         email: normalizedEmail,
         passwordHash: hashPassword(parsed.data.password),
         role: parsed.data.role,
+        phone: parsed.data.phone || null,
+        assignedEventId: parsed.data.assignedEventId || null,
+        assignedStationCode: parsed.data.assignedStationCode || null,
         isActive: true,
       },
       select: {
         id: true,
         email: true,
         name: true,
+        phone: true,
         role: true,
+        assignedEventId: true,
+        assignedStationCode: true,
+        assignedEvent: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
         isActive: true,
         createdAt: true,
       },
@@ -134,12 +166,18 @@ export async function PATCH(request: Request) {
       name?: string;
       role?: 'ADMIN' | 'OPERATOR' | 'VENDOR' | 'VOLUNTEER';
       passwordHash?: string;
+      phone?: string | null;
+      assignedEventId?: string | null;
+      assignedStationCode?: string | null;
     } = {};
 
     if (parsed.data.isActive !== undefined) updateData.isActive = parsed.data.isActive;
     if (parsed.data.name) updateData.name = parsed.data.name.trim();
     if (parsed.data.role) updateData.role = parsed.data.role;
     if (parsed.data.password) updateData.passwordHash = hashPassword(parsed.data.password);
+    if (parsed.data.phone !== undefined) updateData.phone = parsed.data.phone;
+    if (parsed.data.assignedEventId !== undefined) updateData.assignedEventId = parsed.data.assignedEventId;
+    if (parsed.data.assignedStationCode !== undefined) updateData.assignedStationCode = parsed.data.assignedStationCode;
 
     const updatedUser = await prisma.user.update({
       where: { id: parsed.data.id },
@@ -148,8 +186,17 @@ export async function PATCH(request: Request) {
         id: true,
         email: true,
         name: true,
+        phone: true,
         role: true,
         isActive: true,
+        assignedEventId: true,
+        assignedStationCode: true,
+        assignedEvent: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
         updatedAt: true,
       },
     });
@@ -157,6 +204,43 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ user: updatedUser, message: 'User updated successfully' });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to update user';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const auth = await requireAdmin();
+    if (!auth.authorized) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+
+    if (id === auth.session.userId) {
+      return NextResponse.json(
+        { error: 'Cannot delete your own active administrator account.' },
+        { status: 400 }
+      );
+    }
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      return NextResponse.json({ error: 'User account not found' }, { status: 404 });
+    }
+
+    await prisma.user.delete({ where: { id } });
+
+    return NextResponse.json({
+      success: true,
+      message: `Staff account "${targetUser.name}" (${targetUser.email}) deleted successfully.`,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to delete user';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -1,15 +1,48 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
+interface EventBranding {
+  id: string;
+  title: string;
+  slug: string;
+  subtitle: string;
+  organizerName: string;
+  venue: string;
+  city: string;
+  logoUrl?: string | null;
+  organizerLogoUrl?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const eventSlugParam = searchParams.get('event');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [eventBranding, setEventBranding] = useState<EventBranding | null>(null);
+
+  useEffect(() => {
+    const url = eventSlugParam
+      ? `/api/events/public?slug=${encodeURIComponent(eventSlugParam)}`
+      : '/api/events/public';
+
+    fetch(url)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.event) {
+          setEventBranding(data.event);
+        }
+      })
+      .catch(() => {});
+  }, [eventSlugParam]);
 
   const performLogin = async (loginEmail: string, loginPass: string) => {
     setLoading(true);
@@ -64,6 +97,8 @@ export default function LoginPage() {
     }
   };
 
+  const isCustomEvent = Boolean(eventSlugParam && eventSlugParam !== 'jasicon-2026');
+
   return (
     <div style={{ maxWidth: '460px', margin: '2.5rem auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Brand Header */}
@@ -73,8 +108,8 @@ export default function LoginPage() {
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '72px',
-            height: '72px',
+            width: '76px',
+            height: '76px',
             borderRadius: '20px',
             background: '#ffffff',
             boxShadow: '0 8px 24px rgba(13, 98, 94, 0.12)',
@@ -86,19 +121,22 @@ export default function LoginPage() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/evently-logo.jpg"
-            alt="Evently Logo"
+            src={eventBranding?.logoUrl || '/evently-logo.jpg'}
+            alt={eventBranding?.title || 'Event Logo'}
             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/evently-logo.jpg';
+            }}
           />
         </div>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-heading)' }}>
-          JASICON 2026
+          {eventBranding?.title || 'JASICON 2026'}
         </h1>
-        <p style={{ color: 'var(--primary)', fontSize: '0.85rem', fontWeight: 700, marginTop: '2px', letterSpacing: '0.5px' }}>
-          25TH ANNUAL STATE CONFERENCE • ASI JHARKHAND
+        <p style={{ color: eventBranding?.primaryColor || 'var(--primary)', fontSize: '0.85rem', fontWeight: 700, marginTop: '2px', letterSpacing: '0.5px' }}>
+          {eventBranding?.subtitle || '25TH ANNUAL STATE CONFERENCE • ASI JHARKHAND'}
         </p>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '6px' }}>
-          Staff Desk, Scanner &amp; Check-In Portal
+          {eventBranding?.venue ? `📍 ${eventBranding.venue} • Staff Portal` : 'Staff Desk, Scanner & Check-In Portal'}
         </p>
       </div>
 
@@ -113,12 +151,16 @@ export default function LoginPage() {
           background: 'rgba(13, 98, 94, 0.06)',
           border: '1px solid rgba(13, 98, 94, 0.15)',
           fontSize: '0.8rem',
-          color: 'var(--primary)',
+          color: eventBranding?.primaryColor || 'var(--primary)',
           fontWeight: 600,
         }}
       >
         <span>🔒</span>
-        <span>All portal pages are protected. Please sign in to access your role.</span>
+        <span>
+          {isCustomEvent
+            ? `Protected ${eventBranding?.title || 'Conference'} operations portal. Log in to access your assigned desk or counter.`
+            : 'All portal pages are protected. Please sign in to access your role.'}
+        </span>
       </div>
 
       {/* Login Card */}
@@ -161,7 +203,7 @@ export default function LoginPage() {
             <input
               type="email"
               className="form-input"
-              placeholder="admin@jasicon2026.com"
+              placeholder={isCustomEvent ? `operator@${eventSlugParam}.com` : 'admin@jasicon2026.com'}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
@@ -186,131 +228,151 @@ export default function LoginPage() {
             type="submit"
             className="btn btn-primary"
             disabled={loading}
-            style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
+            style={{
+              width: '100%',
+              justifyContent: 'center',
+              marginTop: '0.5rem',
+              background: eventBranding?.primaryColor || undefined,
+            }}
           >
             {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
 
-        {/* 1-Click Role Quick Fill Buttons */}
-        <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem' }}>
-          <div
-            style={{
-              fontSize: '0.72rem',
-              fontWeight: 800,
-              color: 'var(--text-dim)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              marginBottom: '0.75rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <span>Quick 1-Click Role Login</span>
-            <span style={{ fontWeight: 600, color: 'var(--primary)', textTransform: 'none' }}>Click to auto-fill</span>
+        {/* 1-Click Role Quick Fill Buttons (shown on default/demo view) */}
+        {!isCustomEvent ? (
+          <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.2rem' }}>
+            <div
+              style={{
+                fontSize: '0.72rem',
+                fontWeight: 800,
+                color: 'var(--text-dim)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                marginBottom: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <span>Demo 1-Click Role Login</span>
+              <span style={{ fontWeight: 600, color: 'var(--primary)', textTransform: 'none' }}>Click to test</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Super Admin */}
+              <button
+                type="button"
+                onClick={() => handleQuickFill('admin@jasicon2026.com', 'Admin123!', true)}
+                disabled={loading}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #a7f3d0',
+                  background: '#ecfdf5',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#065f46', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>👑</span>
+                    <span>Super Admin</span>
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#047857', marginTop: '2px' }}>
+                    <strong>admin@jasicon2026.com</strong> • Pass: <code style={{ background: '#d1fae5', padding: '1px 4px', borderRadius: '4px' }}>Admin123!</code>
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#059669', background: '#ffffff', padding: '5px 10px', borderRadius: '8px', border: '1px solid #a7f3d0' }}>
+                  1-Click Login →
+                </span>
+              </button>
+
+              {/* Registration Desk Operator */}
+              <button
+                type="button"
+                onClick={() => handleQuickFill('desk@jasicon2026.com', 'Desk123!', true)}
+                disabled={loading}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #bae6fd',
+                  background: '#f0f9ff',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#075985', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>💻</span>
+                    <span>Registration Desk</span>
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#0369a1', marginTop: '2px' }}>
+                    <strong>desk@jasicon2026.com</strong> • Pass: <code style={{ background: '#e0f2fe', padding: '1px 4px', borderRadius: '4px' }}>Desk123!</code>
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0284c7', background: '#ffffff', padding: '5px 10px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                  1-Click Login →
+                </span>
+              </button>
+
+              {/* Catering Vendor */}
+              <button
+                type="button"
+                onClick={() => handleQuickFill('caterer@jasicon2026.com', 'Vendor123!', true)}
+                disabled={loading}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #fde68a',
+                  background: '#fffbeb',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🍽️</span>
+                    <span>Catering Vendor &amp; Scanner</span>
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#b45309', marginTop: '2px' }}>
+                    <strong>caterer@jasicon2026.com</strong> • Pass: <code style={{ background: '#fef3c7', padding: '1px 4px', borderRadius: '4px' }}>Vendor123!</code>
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#d97706', background: '#ffffff', padding: '5px 10px', borderRadius: '8px', border: '1px solid #fde68a' }}>
+                  1-Click Login →
+                </span>
+              </button>
+            </div>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {/* Super Admin */}
-            <button
-              type="button"
-              onClick={() => handleQuickFill('admin@jasicon2026.com', 'Admin123!', true)}
-              disabled={loading}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #a7f3d0',
-                background: '#ecfdf5',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#065f46', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>👑</span>
-                  <span>Super Admin</span>
-                </div>
-                <div style={{ fontSize: '0.72rem', color: '#047857' }}>
-                  admin@jasicon2026.com • Full Control
-                </div>
-              </div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669', background: '#ffffff', padding: '3px 8px', borderRadius: '6px' }}>
-                Sign In →
-              </span>
-            </button>
-
-            {/* Registration Desk Operator */}
-            <button
-              type="button"
-              onClick={() => handleQuickFill('desk@jasicon2026.com', 'Desk123!', true)}
-              disabled={loading}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #bae6fd',
-                background: '#f0f9ff',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#075985', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>💻</span>
-                  <span>Desk Operator</span>
-                </div>
-                <div style={{ fontSize: '0.72rem', color: '#0369a1' }}>
-                  desk@jasicon2026.com • Badge &amp; Check-In
-                </div>
-              </div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0284c7', background: '#ffffff', padding: '3px 8px', borderRadius: '6px' }}>
-                Sign In →
-              </span>
-            </button>
-
-            {/* Catering Vendor */}
-            <button
-              type="button"
-              onClick={() => handleQuickFill('caterer@jasicon2026.com', 'Vendor123!', true)}
-              disabled={loading}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid #fde68a',
-                background: '#fffbeb',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>🍽️</span>
-                  <span>Catering Vendor</span>
-                </div>
-                <div style={{ fontSize: '0.72rem', color: '#b45309' }}>
-                  caterer@jasicon2026.com • Counter Redemptions
-                </div>
-              </div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#d97706', background: '#ffffff', padding: '3px 8px', borderRadius: '6px' }}>
-                Sign In →
-              </span>
-            </button>
+        ) : (
+          <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', textAlign: 'center' }}>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Assigned to <strong>{eventBranding?.title}</strong>? Use the official counter credentials provided by your Administrator.
+            </p>
           </div>
-        </div>
+        )}
       </div>
-
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ textAlign: 'center', padding: '3.5rem', color: 'var(--text-muted)' }}>Loading portal...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

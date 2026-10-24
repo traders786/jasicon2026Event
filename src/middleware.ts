@@ -64,10 +64,27 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // OPERATOR: cannot access /audit
+  // OPERATOR (Registration Desk Staff):
+  // Has access to /participants and /register.
+  // Must NOT have access to /scanner, /audit, /backend, or /users.
   if (session.role === 'OPERATOR') {
-    if (pathname === '/audit') {
+    if (
+      pathname === '/' ||
+      pathname === '/scanner' ||
+      pathname.startsWith('/scanner/') ||
+      pathname === '/audit' ||
+      pathname === '/backend' ||
+      pathname === '/users' ||
+      pathname.startsWith('/users/')
+    ) {
       return NextResponse.redirect(new URL('/participants', request.url));
+    }
+  }
+
+  // ADMIN-only routes: /users, /backend, /audit
+  if (pathname === '/users' || pathname.startsWith('/users/')) {
+    if (session.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL(session.role === 'VENDOR' ? '/scanner' : '/participants', request.url));
     }
   }
 

@@ -13,16 +13,29 @@ const RegisterSchema = z.object({
   phone: z.string().optional(),
   company: z.string().optional(),
   jobTitle: z.string().optional(),
+  photoUrl: z.string().optional(),
 });
+
+import { getEventContext } from '@/lib/event-context';
 
 export async function GET(request: Request) {
   try {
+    const eventCtx = await getEventContext();
     const { searchParams } = new URL(request.url);
-    const eventId = searchParams.get('eventId');
+    const eventIdParam = searchParams.get('eventId');
     const search = searchParams.get('q')?.trim() || '';
 
     const whereClause: Prisma.EventRegistrationWhereInput = {};
-    if (eventId) whereClause.eventId = eventId;
+
+    // Strict event scoping: Super Admin can specify event or uses active; Staff is locked to assigned event!
+    const effectiveEventId = eventCtx?.isSuperAdmin
+      ? (eventIdParam || eventCtx?.eventId)
+      : eventCtx?.eventId;
+
+    if (effectiveEventId) {
+      whereClause.eventId = effectiveEventId;
+    }
+
     if (search) {
       whereClause.OR = [
         { ticketCode: { contains: search, mode: 'insensitive' } },
@@ -120,7 +133,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 });
     }
 
-    const { eventId, firstName, lastName, email, phone, company, jobTitle } = parsed.data;
+    const { eventId, firstName, lastName, email, phone, company, jobTitle, photoUrl } = parsed.data;
 
     // 1. Find or create Person
     const person = await prisma.person.upsert({
@@ -131,6 +144,7 @@ export async function POST(request: Request) {
         phone,
         company,
         jobTitle,
+        ...(photoUrl ? { photoUrl } : {}),
       },
       create: {
         firstName,
@@ -139,57 +153,79 @@ export async function POST(request: Request) {
         phone,
         company,
         jobTitle,
+        photoUrl: photoUrl || null,
       },
     });
+
+    const eventCtx = await getEventContext();
+    const targetEventId = eventCtx?.isSuperAdmin
+      ? (eventId || eventCtx?.eventId)
+      : eventCtx?.eventId;
+
+    if (!targetEventId) {
+      return NextResponse.json({ error: 'Valid conference context is required' }, { status: 400 });
+    }
 
     // 2. Check if already registered for this event
     const existing = await prisma.eventRegistration.findUnique({
       where: {
         personId_eventId: {
           personId: person.id,
-          eventId,
+          eventId: targetEventId,
         },
       },
     });
 
     if (existing) {
       return NextResponse.json(
-        { error: 'This person is already registered for this event.', ticketCode: existing.ticketCode },
+        { error: 'This person is already registered for this conference.', ticketCode: existing.ticketCode },
         { status: 409 }
       );
     }
 
-    // 3. Generate sequential ticket code without collision
+    // 3. Generate sequential ticket code with conference prefix without collision
+    const prefix = eventCtx?.event?.ticketPrefix || 'JC-2026';
     const latestReg = await prisma.eventRegistration.findFirst({
-      where: { ticketCode: { startsWith: 'EC-2026-' } },
+      where: {
+        eventId: targetEventId,
+        ticketCode: { startsWith: `${prefix}-` },
+      },
       orderBy: { ticketCode: 'desc' },
       select: { ticketCode: true },
     });
     let nextNum = 1;
     if (latestReg?.ticketCode) {
-      const match = latestReg.ticketCode.match(/EC-2026-(\d+)/);
+      const match = latestReg.ticketCode.match(new RegExp(`${prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}-(\\d+)`));
       if (match) {
         nextNum = parseInt(match[1], 10) + 1;
       }
     }
-    const ticketCode = `EC-2026-${String(nextNum).padStart(4, '0')}`;
+    const ticketCode = `${prefix}-${String(nextNum).padStart(4, '0')}`;
 
     // 4. Generate Zero-PII QR token
     const { plainToken, tokenHash } = generateSecureQrToken();
 
-    // 5. Create registration and 19 entitlements in transaction
+    // 5. Create registration and event entitlements in transaction
+    const stationsToUse = (eventCtx?.event?.stations && eventCtx.event.stations.length > 0)
+      ? eventCtx.event.stations.map((s) => ({
+          category: s.category === 'SESSION' ? ('SESSION' as const) : ('MEAL' as const),
+          code: s.code,
+          title: s.label,
+        }))
+      : ALL_ENTITLEMENT_DEFINITIONS;
+
     const registration = await prisma.$transaction(async (tx) => {
       const reg = await tx.eventRegistration.create({
         data: {
           personId: person.id,
-          eventId,
+          eventId: targetEventId,
           ticketCode,
           qrTokenHash: tokenHash,
           status: 'CONFIRMED',
         },
       });
 
-      const entitlementsData = ALL_ENTITLEMENT_DEFINITIONS.map((def) => ({
+      const entitlementsData = stationsToUse.map((def) => ({
         registrationId: reg.id,
         category: def.category,
         code: def.code,
@@ -216,9 +252,13 @@ export async function POST(request: Request) {
           ticketCode: registration.ticketCode,
           status: registration.status,
           person: {
+            id: person.id,
             name: `${person.firstName} ${person.lastName}`,
             email: person.email,
+            phone: person.phone,
             company: person.company,
+            jobTitle: person.jobTitle,
+            photoUrl: photoUrl || person.photoUrl || null,
           },
         },
         qrToken: plainToken,

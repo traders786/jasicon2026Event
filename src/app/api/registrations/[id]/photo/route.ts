@@ -45,16 +45,25 @@ export async function POST(
 
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
+      const mime = fileType || 'image/jpeg';
+      const dataUri = `data:${mime};base64,${buffer.toString('base64')}`;
 
-      // Save to public/uploads/avatars
-      const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'avatars');
-      await fs.mkdir(uploadsDir, { recursive: true });
+      // Default to dataUri which is 100% persistent in DB across all Vercel serverless containers
+      photoUrl = dataUri;
 
-      const safeFilename = `avatar_${registration.person.id}_${Date.now()}${ext}`;
-      const filePath = path.join(uploadsDir, safeFilename);
-      await fs.writeFile(filePath, buffer);
-
-      photoUrl = `/uploads/avatars/${safeFilename}`;
+      // Only attempt local disk write in non-Vercel local development
+      if (!process.env.VERCEL) {
+        try {
+          const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'avatars');
+          await fs.mkdir(uploadsDir, { recursive: true });
+          const safeFilename = `avatar_${registration.person.id}_${Date.now()}${ext}`;
+          const filePath = path.join(uploadsDir, safeFilename);
+          await fs.writeFile(filePath, buffer);
+          photoUrl = `/uploads/avatars/${safeFilename}`;
+        } catch {
+          photoUrl = dataUri;
+        }
+      }
     }
     // B. Base64 JSON Payload (e.g. from camera capture or data URL)
     else if (contentType.includes('application/json')) {
@@ -65,28 +74,10 @@ export async function POST(
         return NextResponse.json({ error: 'No image data provided' }, { status: 400 });
       }
 
-      // Extract raw base64 if it's a data URL
-      const matches = base64Data.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
-      if (matches) {
-        const mimeType = matches[1];
-        const rawBase64 = matches[2];
-        let ext = '.jpg';
-        if (mimeType.includes('png')) ext = '.png';
-        else if (mimeType.includes('webp')) ext = '.webp';
-
-        const buffer = Buffer.from(rawBase64, 'base64');
-        const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'avatars');
-        await fs.mkdir(uploadsDir, { recursive: true });
-
-        const safeFilename = `avatar_${registration.person.id}_${Date.now()}${ext}`;
-        const filePath = path.join(uploadsDir, safeFilename);
-        await fs.writeFile(filePath, buffer);
-
-        photoUrl = `/uploads/avatars/${safeFilename}`;
-      } else if (base64Data.startsWith('http://') || base64Data.startsWith('https://') || base64Data.startsWith('/')) {
+      if (base64Data.startsWith('data:') || base64Data.startsWith('http://') || base64Data.startsWith('https://') || base64Data.startsWith('/')) {
         photoUrl = base64Data;
       } else {
-        return NextResponse.json({ error: 'Invalid photo data format' }, { status: 400 });
+        photoUrl = `data:image/jpeg;base64,${base64Data}`;
       }
     } else {
       return NextResponse.json({ error: 'Unsupported Content-Type' }, { status: 415 });

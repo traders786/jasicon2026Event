@@ -53,13 +53,12 @@ export function ParticipantBadge({
       const iframe = document.createElement('iframe');
       iframe.id = 'ec-single-page-print-frame';
       iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = '0';
-      iframe.style.opacity = '0';
-      iframe.style.pointerEvents = 'none';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '0';
+      iframe.style.width = '800px';
+      iframe.style.height = '1100px';
+      iframe.style.border = 'none';
+      iframe.style.visibility = 'hidden';
       document.body.appendChild(iframe);
 
       const doc = iframe.contentWindow?.document;
@@ -68,11 +67,6 @@ export function ParticipantBadge({
         return;
       }
 
-      let stylesHtml = '';
-      document.querySelectorAll('style, link[rel="stylesheet"]').forEach((el) => {
-        stylesHtml += el.outerHTML;
-      });
-
       const badgeHtml = badgeCardRef.current.outerHTML;
 
       doc.open();
@@ -80,46 +74,171 @@ export function ParticipantBadge({
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Badge_${ticketCode}</title>
-    ${stylesHtml}
     <style>
       @page {
         size: auto;
-        margin: 0 !important;
+        margin: 5mm;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        visibility: visible !important;
       }
       html, body {
-        width: 100vw !important;
-        height: 100vh !important;
-        max-width: 100vw !important;
-        max-height: 100vh !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-        background: #ffffff !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
+        background: #ffffff;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
       .conference-badge-card {
-        margin: auto !important;
-        box-shadow: none !important;
-        border: 2px solid #0d625e !important;
+        width: 86mm !important;
         max-width: 86mm !important;
+        height: 125mm !important;
         max-height: 125mm !important;
-        min-height: 0 !important;
-        height: auto !important;
+        background: #ffffff !important;
+        border: 2px solid #0d625e !important;
+        border-radius: 12px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        overflow: hidden !important;
+        position: relative !important;
+        padding-bottom: 8px !important;
+        margin: auto !important;
         page-break-inside: avoid !important;
-        page-break-after: avoid !important;
-        page-break-before: avoid !important;
         break-inside: avoid !important;
-        break-after: avoid !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
-        overflow: hidden !important;
-        box-sizing: border-box !important;
+      }
+      .badge-header {
+        width: 100%;
+        background: #0d625e !important;
+        color: #ffffff !important;
+        padding: 10px 8px 6px 8px;
+        text-align: center;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .badge-event-title {
+        font-size: 13pt;
+        font-weight: 900;
+        text-transform: uppercase;
+        color: #ffffff !important;
+        line-height: 1.1;
+      }
+      .badge-event-venue {
+        font-size: 7.5pt;
+        color: #c9ede8 !important;
+        margin-top: 2px;
+      }
+      .badge-category-strip {
+        width: 100%;
+        background: #d97706 !important;
+        color: #ffffff !important;
+        padding: 3px 0;
+        font-size: 7.5pt;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        text-align: center;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .badge-avatar-wrap {
+        margin-top: 8px;
+        width: 80px;
+        height: 80px;
+      }
+      .badge-photo-img {
+        width: 80px;
+        height: 80px;
+        border-radius: 14px;
+        object-fit: cover;
+        border: 2.5px solid #0d625e;
+      }
+      .badge-avatar-placeholder {
+        width: 80px;
+        height: 80px;
+        border-radius: 14px;
+        background: #0d625e !important;
+        color: #ffffff !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24pt;
+        font-weight: 800;
+        border: 2.5px solid #0d625e;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .badge-attendee-info {
+        margin-top: 6px;
+        padding: 0 8px;
+        width: 100%;
+        text-align: center;
+      }
+      .badge-name {
+        font-size: 13pt;
+        font-weight: 900;
+        color: #0f2927;
+        line-height: 1.2;
+      }
+      .badge-job-title {
+        font-size: 8.5pt;
+        font-weight: 700;
+        color: #0d625e;
+      }
+      .badge-company {
+        font-size: 7.5pt;
+        color: #64748b;
+        margin-top: 1px;
+      }
+      .badge-qr-section {
+        margin-top: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: #f8fcfa !important;
+        padding: 6px 10px 4px 10px;
+        border-radius: 10px;
+        border: 1px solid #dce7e4;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .badge-qr-img {
+        width: 120px !important;
+        height: 120px !important;
+        display: block;
+      }
+      .badge-ticket-code {
+        font-family: monospace;
+        font-size: 9pt;
+        font-weight: 800;
+        color: #0d625e;
+        letter-spacing: 0.08em;
+        margin-top: 2px;
+      }
+      .badge-footer {
+        margin-top: auto;
+        padding: 4px 8px 0 8px;
+        width: 100%;
+        border-top: 1px dashed #cbd5e1;
+        text-align: center;
+      }
+      .badge-security-text {
+        font-size: 5.5pt;
+        font-weight: 700;
+        color: #94a3b8;
+        text-transform: uppercase;
       }
       .no-print, .badge-lanyard-slot {
         display: none !important;
@@ -127,7 +246,9 @@ export function ParticipantBadge({
     </style>
   </head>
   <body>
-    ${badgeHtml}
+    <div class="printable-badge-container">
+      ${badgeHtml}
+    </div>
   </body>
 </html>`);
       doc.close();
@@ -139,7 +260,7 @@ export function ParticipantBadge({
         } catch {
           window.print();
         }
-      }, 300);
+      }, 350);
     } catch {
       window.print();
     }
@@ -166,26 +287,24 @@ export function ParticipantBadge({
 
     const text = `Dear ${displayName},
 
-Greetings from JASICON 2026, Deoghar.
+Greetings from JASICON 2026! 🏥✨
+Here are your official conference registration and digital badge details:
 
-Your registration for the 25th Annual Conference of ASI (Jharkhand Chapter) is confirmed.
+📋 Delegate: ${displayName}
+🎫 Ticket Code: ${ticketCode}
+🏛️ Conference: 25th Annual State Conference of JASICON 2026
+📍 Venue: Deoghar, Jharkhand
+✅ Status: CONFIRMED
 
-Registration Details:
-• Delegate: ${displayName}
-• Category: ${categoryText}
-• Reg No: ${ticketCode}
-• Venue: Deoghar, Jharkhand
-
-Access your Digital Badge & Entry QR Code:
+📱 View & Download your Digital Badge & QR Code online:
 ${badgeUrl}
 
-Please show this QR code at the registration desk for express check-in, conference kit, and meal access.
+Please present your QR code at the registration desk for quick check-in and access to conference meals & academic sessions.
 
 Warm regards,
-Organizing Committee
-JASICON 2026, Deoghar`;
+Organizing Committee, JASICON 2026`;
 
-    window.open(`https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownloadPdf = async () => {
