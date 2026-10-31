@@ -115,6 +115,13 @@ export default function ParticipantsPage() {
   // Placeholder detection state
   const [placeholderCount, setPlaceholderCount] = useState<number>(0);
 
+  // PDF Export state
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const pdfPrintContainerRef = useRef<HTMLDivElement>(null);
+  const [pdfParticipants, setPdfParticipants] = useState<ParticipantItem[]>([]);
+  const [pdfEventInfo, setPdfEventInfo] = useState<{ title: string; venue: string } | null>(null);
+  const [pdfGeneratedDate, setPdfGeneratedDate] = useState<string>('');
+
   // Fetch current user role once
   useEffect(() => {
     fetch('/api/auth/me')
@@ -570,6 +577,84 @@ Organizing Committee, ${confTitle}`;
     }
   };
 
+  // Handle clean PDF export of participant directory (excluding action buttons & checkboxes)
+  const handleExportPdf = async () => {
+    try {
+      setExportingPdf(true);
+      setPdfGeneratedDate(new Date().toLocaleString());
+      const queryParam = appliedQuery ? `&q=${encodeURIComponent(appliedQuery)}` : '';
+      const res = await fetch(`/api/registrations?limit=1000${queryParam}`);
+      if (!res.ok) throw new Error('Failed to fetch participant directory');
+      const json = await res.json();
+      const allRows: ParticipantItem[] = json.registrations || participants;
+
+      setPdfParticipants(allRows);
+      if (allRows.length > 0 && allRows[0].event) {
+        setPdfEventInfo(allRows[0].event);
+      }
+
+      // Small pause to allow React to render the printable container
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+
+      if (!pdfPrintContainerRef.current) {
+        throw new Error('PDF printable container ref not found');
+      }
+
+      const container = pdfPrintContainerRef.current;
+      container.style.display = 'block';
+
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+
+      container.style.display = 'none';
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'pt',
+        format: 'a4',
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const ratio = canvasWidth / pdfWidth;
+      const totalPdfHeight = canvasHeight / ratio;
+
+      let position = 0;
+      let heightLeft = totalPdfHeight;
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalPdfHeight);
+      heightLeft -= pdfHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - totalPdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalPdfHeight);
+        heightLeft -= pdfHeight;
+      }
+
+      const safeName = (allRows[0]?.event?.title || 'Attendees')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-');
+      const dateStamp = new Date().toISOString().split('T')[0];
+      pdf.save(`${safeName}-participant-directory-${dateStamp}.pdf`);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      window.print();
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const loadSampleTemplate = () => {
     const sample = `Sl No.,Name,Catogry,Mobile No.,Distt.,Date of Registration,Mode of Payment,Amount
 119,Dr. Ajay Kumar,Faculty,9007731038,Ranchi,13-Oct-2026,Online,3500
@@ -602,6 +687,21 @@ Organizing Committee, ${confTitle}`;
               >
                 <span>📊</span> Export CSV
               </a>
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={exportingPdf}
+                className="btn btn-secondary"
+                title="Download attendee directory as high-quality PDF report (without action buttons)"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                }}
+              >
+                <span>📄</span> {exportingPdf ? 'Exporting PDF...' : 'Export PDF'}
+              </button>
               <button
                 onClick={() => {
                   setShowImportModal(true);
@@ -2209,6 +2309,126 @@ Organizing Committee, ${confTitle}`;
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* OFF-SCREEN PDF PRINTABLE DIRECTORY TEMPLATE (CLEAN, NO ACTION BUTTONS)    */}
+      {/* ========================================================================= */}
+      <div
+        ref={pdfPrintContainerRef}
+        style={{
+          display: 'none',
+          position: 'fixed',
+          left: '-9999px',
+          top: 0,
+          width: '1120px',
+          background: '#ffffff',
+          color: '#0f172a',
+          padding: '28px 32px',
+          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+          boxSizing: 'border-box',
+        }}
+      >
+        {/* Document Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2.5px solid #0d625e', paddingBottom: '16px', marginBottom: '20px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '1.4rem' }}>🏛️</span>
+              <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0d625e', margin: 0 }}>
+                {pdfEventInfo?.title || 'Conference Event'}
+              </h1>
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>
+              📍 {pdfEventInfo?.venue || 'Official Conference Venue'}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
+              Official Participant Directory Report
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '3px' }}>
+              Generated on: {pdfGeneratedDate || 'Official Report'}
+            </div>
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#059669', marginTop: '2px' }}>
+              Total Registered Attendees: {pdfParticipants.length}
+            </div>
+          </div>
+        </div>
+
+        {/* Directory Table — No Action Buttons (Badge, WhatsApp, Profile, Delete) */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+          <thead>
+            <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+              <th style={{ padding: '8px 6px', textAlign: 'center', width: '36px', color: '#334155', fontWeight: 700 }}>#</th>
+              <th style={{ padding: '8px 10px', textAlign: 'left', width: '130px', color: '#334155', fontWeight: 700 }}>Ticket Code</th>
+              <th style={{ padding: '8px 10px', textAlign: 'left', color: '#334155', fontWeight: 700 }}>Attendee Name &amp; Title</th>
+              <th style={{ padding: '8px 10px', textAlign: 'left', color: '#334155', fontWeight: 700 }}>Institution / Organization</th>
+              <th style={{ padding: '8px 10px', textAlign: 'left', color: '#334155', fontWeight: 700 }}>Contact Info</th>
+              <th style={{ padding: '8px 10px', textAlign: 'center', width: '95px', color: '#334155', fontWeight: 700 }}>Status</th>
+              <th style={{ padding: '8px 10px', textAlign: 'center', width: '90px', color: '#334155', fontWeight: 700 }}>Meals Redeemed</th>
+              <th style={{ padding: '8px 10px', textAlign: 'center', width: '90px', color: '#334155', fontWeight: 700 }}>Sessions Attended</th>
+              <th style={{ padding: '8px 10px', textAlign: 'right', width: '85px', color: '#334155', fontWeight: 700 }}>Date Reg.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pdfParticipants.map((p, idx) => (
+              <tr
+                key={p.id}
+                style={{
+                  borderBottom: '1px solid #e2e8f0',
+                  background: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
+                }}
+              >
+                <td style={{ padding: '7px 6px', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{idx + 1}</td>
+                <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 800, color: '#0d625e' }}>{p.ticketCode}</td>
+                <td style={{ padding: '7px 10px' }}>
+                  <div style={{ fontWeight: 700, color: '#0f172a' }}>{p.person.name}</div>
+                  {p.person.jobTitle && (
+                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{p.person.jobTitle}</div>
+                  )}
+                </td>
+                <td style={{ padding: '7px 10px', color: '#334155' }}>
+                  {p.person.company || '—'}
+                </td>
+                <td style={{ padding: '7px 10px', color: '#475569', fontSize: '0.75rem' }}>
+                  <div>{p.person.email}</div>
+                  {p.person.phone && <div style={{ color: '#64748b' }}>{p.person.phone}</div>}
+                </td>
+                <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      padding: '2px 7px',
+                      borderRadius: '4px',
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      background: p.status === 'CHECKED_IN' ? '#ecfdf5' : '#eff6ff',
+                      color: p.status === 'CHECKED_IN' ? '#047857' : '#1d4ed8',
+                      border: p.status === 'CHECKED_IN' ? '1px solid #a7f3d0' : '1px solid #bfdbfe',
+                    }}
+                  >
+                    {p.status === 'CHECKED_IN' ? 'CHECKED-IN' : 'CONFIRMED'}
+                  </span>
+                </td>
+                <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, color: '#059669' }}>
+                  {p.entitlementsSummary.mealsRedeemed} / {p.entitlementsSummary.mealsTotal}
+                </td>
+                <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, color: '#0d625e' }}>
+                  {p.entitlementsSummary.sessionsRedeemed} / {p.entitlementsSummary.sessionsTotal}
+                </td>
+                <td style={{ padding: '7px 10px', textAlign: 'right', color: '#64748b', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
+                  {new Date(p.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Footer */}
+        <div style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8' }}>
+          <span>Confidential — Internal Conference Registry</span>
+          <span>Evently Multi-Conference Platform</span>
+        </div>
+      </div>
     </div>
   );
 }

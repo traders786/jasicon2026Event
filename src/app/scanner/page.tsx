@@ -717,22 +717,6 @@ export default function ScannerPage() {
     }
   };
 
-  if (currentUserRole === 'OPERATOR') {
-    return (
-      <div style={{ textAlign: 'center', padding: '4rem 1rem', maxWidth: '520px', margin: '2rem auto' }} className="card">
-        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚫</div>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-heading)' }}>
-          Scanner Access Restricted
-        </h2>
-        <p style={{ color: 'var(--text-muted)', marginTop: '0.65rem', marginBottom: '1.5rem', fontSize: '0.92rem', lineHeight: 1.5 }}>
-          Registration desk staff accounts are not authorized to operate QR scanner stations. Please proceed to the participants management dashboard.
-        </p>
-        <Link href="/participants" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          <span>👥</span> Return to Participants
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1100px', margin: '0 auto' }}>

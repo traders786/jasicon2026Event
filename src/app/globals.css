@@ -2227,3 +2227,48 @@ body {
   }
 }
 
+/* ==============================================================================
+   Mobile UI Responsiveness Polish (< 640px)
+   ============================================================================== */
+@media (max-width: 640px) {
+  /* Prevent horizontal document overflow */
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Full-width touch-friendly form buttons */
+  .btn {
+    min-height: 44px;
+  }
+
+  /* Smooth horizontal swiping for data tables with scrollbar touch */
+  .table-wrap {
+    box-shadow: inset -8px 0 8px -8px rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+    margin: 0 -0.25rem;
+  }
+
+  /* Modals on mobile sheet slide-up */
+  .profile-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .profile-modal-card {
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 92vh !important;
+    padding: 1.25rem 1rem !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Mobile QR scanner viewfinder */
+  .scanner-camera-box {
+    border-radius: 12px;
+    max-height: 60vh;
+  }
+}
+
+
