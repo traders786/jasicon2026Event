@@ -10,6 +10,7 @@ interface ParticipantItem {
   status: string;
   checkedInAt: string | null;
   createdAt: string;
+  accompanyingPersons?: Array<{ name: string; relation?: string }> | null;
   person: {
     id: string;
     name: string;
@@ -633,16 +634,26 @@ Organizing Committee, ${confTitle}`;
           'Meals',
           'Sessions',
         ]],
-        body: allRows.map((p, idx) => [
-          (idx + 1).toString(),
-          p.ticketCode,
-          p.person.jobTitle ? `${p.person.name}\n${p.person.jobTitle}` : p.person.name,
-          p.person.company || '—',
-          p.person.phone ? `${p.person.email}\n${p.person.phone}` : p.person.email,
-          p.status === 'CHECKED_IN' ? 'CHECKED-IN' : 'CONFIRMED',
-          `${p.entitlementsSummary.mealsRedeemed} / ${p.entitlementsSummary.mealsTotal}`,
-          `${p.entitlementsSummary.sessionsRedeemed} / ${p.entitlementsSummary.sessionsTotal}`,
-        ]),
+        body: allRows.map((p, idx) => {
+          let attendeeText = p.person.jobTitle ? `${p.person.name}\n${p.person.jobTitle}` : p.person.name;
+          if (p.accompanyingPersons && p.accompanyingPersons.length > 0) {
+            const accList = p.accompanyingPersons
+              .map((a) => `${a.name}${a.relation ? ` (${a.relation})` : ''}`)
+              .join(', ');
+            attendeeText += `\n👥 Accompanying (${p.accompanyingPersons.length}): ${accList}`;
+          }
+
+          return [
+            (idx + 1).toString(),
+            p.ticketCode,
+            attendeeText,
+            p.person.company || '—',
+            p.person.phone ? `${p.person.email}\n${p.person.phone}` : p.person.email,
+            p.status === 'CHECKED_IN' ? 'CHECKED-IN' : 'CONFIRMED',
+            `${p.entitlementsSummary.mealsRedeemed} / ${p.entitlementsSummary.mealsTotal}`,
+            `${p.entitlementsSummary.sessionsRedeemed} / ${p.entitlementsSummary.sessionsTotal}`,
+          ];
+        }),
         styles: {
           font: 'helvetica',
           fontSize: 8,
@@ -1155,6 +1166,27 @@ Organizing Committee, ${confTitle}`;
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                               {p.person.jobTitle ? `${p.person.jobTitle} • ` : ''}{p.person.company || 'Independent'}
                             </div>
+                            {p.accompanyingPersons && p.accompanyingPersons.length > 0 && (
+                              <div
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '0.7rem',
+                                  color: '#065f46',
+                                  background: '#ecfdf5',
+                                  border: '1px solid #a7f3d0',
+                                  padding: '1px 6px',
+                                  borderRadius: '6px',
+                                  marginTop: '2px',
+                                  fontWeight: 600,
+                                }}
+                                title={`Accompanying Guests: ${p.accompanyingPersons.map((a) => `${a.name}${a.relation ? ` (${a.relation})` : ''}`).join(', ')}`}
+                              >
+                                <span>👥</span>
+                                <span>+{p.accompanyingPersons.length} Accompanying</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>

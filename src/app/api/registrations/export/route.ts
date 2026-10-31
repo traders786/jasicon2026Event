@@ -50,6 +50,8 @@ export async function GET(request: Request) {
       'Company',
       'Job Title',
       'Status',
+      'Accompanying Count',
+      'Accompanying Names',
       'Checked In At',
       'Meals Redeemed',
       'Meals Total',
@@ -63,6 +65,9 @@ export async function GET(request: Request) {
       const sessions = r.entitlements.filter((e) => e.category === 'SESSION');
       const mealsRedeemed = meals.filter((m) => m.status === 'REDEEMED').length;
       const sessionsRedeemed = sessions.filter((s) => s.status === 'REDEEMED').length;
+      const accList = (r.accompanyingPersons as any[]) || [];
+      const accCount = accList.length;
+      const accNames = accList.map((a: any) => `${a.name}${a.relation ? ` (${a.relation})` : ''}`).join('; ');
 
       return [
         r.ticketCode,
@@ -73,6 +78,8 @@ export async function GET(request: Request) {
         r.person.company || '',
         r.person.jobTitle || '',
         r.status,
+        accCount,
+        accNames,
         r.checkedInAt ? r.checkedInAt.toISOString() : '',
         mealsRedeemed,
         meals.length,

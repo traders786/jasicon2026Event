@@ -39,6 +39,12 @@ export default function RegisterPage() {
   const [company, setCompany] = useState('');
   const [category, setCategory] = useState<'DELEGATE' | 'FACULTY' | 'PG STUDENT'>('DELEGATE');
 
+  // Accompanying Person(s) state
+  const [hasAccompanying, setHasAccompanying] = useState<boolean>(false);
+  const [accompanyingPersons, setAccompanyingPersons] = useState<
+    Array<{ id: string; name: string; relation: string }>
+  >([{ id: '1', name: '', relation: 'Spouse' }]);
+
   // Photo Capture & Camera State
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -227,6 +233,15 @@ export default function RegisterPage() {
     try {
       const formattedPhone = phone ? `+91${phone}` : undefined;
 
+      const validAccompanying = hasAccompanying
+        ? accompanyingPersons
+            .filter((p) => p.name.trim().length > 0)
+            .map((p) => ({
+              name: p.name.trim(),
+              relation: p.relation.trim() || 'Guest',
+            }))
+        : [];
+
       const res = await fetch('/api/registrations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -239,6 +254,7 @@ export default function RegisterPage() {
           company: company.trim() || undefined,
           jobTitle: category,
           photoUrl: photoData || undefined,
+          accompanyingPersons: validAccompanying.length > 0 ? validAccompanying : undefined,
         }),
       });
 
@@ -257,6 +273,8 @@ export default function RegisterPage() {
       setCompany('');
       setCategory('DELEGATE');
       setPhotoData(null);
+      setHasAccompanying(false);
+      setAccompanyingPersons([{ id: '1', name: '', relation: 'Spouse' }]);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -554,6 +572,156 @@ export default function RegisterPage() {
                 onChange={(e) => setCompany(e.target.value)}
               />
             </div>
+          </div>
+
+          {/* Accompanying Person(s) Checkbox & Sub-form */}
+          <div
+            style={{
+              background: hasAccompanying ? '#f0fdf9' : 'var(--bg-subtle, #f8fafc)',
+              border: hasAccompanying ? '1.5px solid #0d625e' : '1px solid var(--border-subtle, #e2e8f0)',
+              borderRadius: '12px',
+              padding: '1rem 1.25rem',
+              marginBottom: '1.5rem',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                cursor: 'pointer',
+                fontWeight: 700,
+                color: 'var(--text-heading)',
+                fontSize: '0.95rem',
+                userSelect: 'none',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={hasAccompanying}
+                onChange={(e) => {
+                  setHasAccompanying(e.target.checked);
+                  if (e.target.checked && accompanyingPersons.length === 0) {
+                    setAccompanyingPersons([{ id: String(Date.now()), name: '', relation: 'Spouse' }]);
+                  }
+                }}
+                style={{ width: '18px', height: '18px', accentColor: '#0d625e', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '1.15rem' }}>👥</span>
+              <span>Add Accompanying Person(s)</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-muted)' }}>
+                (Spouse, child, or guest joining the delegate)
+              </span>
+            </label>
+
+            {hasAccompanying && (
+              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(13, 98, 94, 0.15)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {accompanyingPersons.map((person, index) => (
+                    <div
+                      key={person.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                        background: '#ffffff',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-subtle, #e2e8f0)',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', width: '22px' }}>
+                        #{index + 1}
+                      </span>
+                      <div style={{ flex: '2 1 200px' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g. Mrs. Priya Sharma"
+                          value={person.name}
+                          onChange={(e) => {
+                            const updated = [...accompanyingPersons];
+                            updated[index].name = e.target.value;
+                            setAccompanyingPersons(updated);
+                          }}
+                          required={hasAccompanying}
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <div style={{ flex: '1 1 140px' }}>
+                        <select
+                          className="form-select"
+                          value={person.relation}
+                          onChange={(e) => {
+                            const updated = [...accompanyingPersons];
+                            updated[index].relation = e.target.value;
+                            setAccompanyingPersons(updated);
+                          }}
+                          style={{ width: '100%' }}
+                        >
+                          <option value="Spouse">Spouse</option>
+                          <option value="Child">Child</option>
+                          <option value="Guest">Guest</option>
+                          <option value="Colleague">Colleague</option>
+                          <option value="Family Member">Family Member</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      {accompanyingPersons.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAccompanyingPersons(accompanyingPersons.filter((_, i) => i !== index));
+                          }}
+                          style={{
+                            background: '#fee2e2',
+                            border: '1px solid #fca5a5',
+                            color: '#b91c1c',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            cursor: 'pointer',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                          }}
+                          title="Remove accompanying guest"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: '0.85rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccompanyingPersons((prev) => [
+                        ...prev,
+                        { id: String(Date.now()), name: '', relation: 'Guest' },
+                      ]);
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: '1.5px dashed #0d625e',
+                      color: '#0d625e',
+                      borderRadius: '8px',
+                      padding: '6px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <span>+</span> Add Another Accompanying Person
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Form Action Button */}

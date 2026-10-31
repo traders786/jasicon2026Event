@@ -28,6 +28,7 @@ export interface ParticipantDetailData {
   checkedInAt: string | null;
   createdAt: string;
   updatedAt: string;
+  accompanyingPersons?: Array<{ name: string; relation?: string }> | null;
   qrPayload: string;
   qrDataUrl: string;
   person: {
@@ -968,6 +969,59 @@ Organizing Committee, ${confTitle}`;
                       )}
                     </span>
                   </div>
+
+                  {data.accompanyingPersons && data.accompanyingPersons.length > 0 && (
+                    <div
+                      style={{
+                        gridColumn: '1 / -1',
+                        background: '#f0fdf9',
+                        border: '1.5px solid #0d625e',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        marginTop: '8px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '1.1rem' }}>👥</span>
+                        <span style={{ fontWeight: 800, color: '#0d625e', fontSize: '0.9rem' }}>
+                          Accompanying Persons ({data.accompanyingPersons.length})
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {data.accompanyingPersons.map((acc, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              background: '#ffffff',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid #a7f3d0',
+                              fontSize: '0.84rem',
+                            }}
+                          >
+                            <span style={{ fontWeight: 700, color: '#0f172a' }}>
+                              #{idx + 1} {acc.name}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: '0.72rem',
+                                color: '#065f46',
+                                background: '#ecfdf5',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                fontWeight: 700,
+                              }}
+                            >
+                              {acc.relation || 'Guest'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

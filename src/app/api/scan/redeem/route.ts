@@ -23,13 +23,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    if (session.role === 'OPERATOR') {
-      return NextResponse.json(
-        { error: 'Access Denied: Registration desk staff accounts are not authorized to operate meal/station scanners.' },
-        { status: 403 }
-      );
-    }
-
     const eventCtx = await getEventContext();
     if (!eventCtx) {
       return NextResponse.json({ error: 'No active or assigned event context found.' }, { status: 403 });

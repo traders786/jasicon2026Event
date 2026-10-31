@@ -69,6 +69,7 @@ export async function GET(
         checkedInAt: registration.checkedInAt,
         createdAt: registration.createdAt,
         updatedAt: registration.updatedAt,
+        accompanyingPersons: registration.accompanyingPersons || [],
         qrPayload,
         qrDataUrl,
         person: {

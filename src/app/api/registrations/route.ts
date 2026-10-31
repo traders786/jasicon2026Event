@@ -14,6 +14,10 @@ const RegisterSchema = z.object({
   company: z.string().optional(),
   jobTitle: z.string().optional(),
   photoUrl: z.string().optional(),
+  accompanyingPersons: z.array(z.object({
+    name: z.string(),
+    relation: z.string().optional(),
+  })).optional(),
 });
 
 import { getEventContext } from '@/lib/event-context';
@@ -100,6 +104,7 @@ export async function GET(request: Request) {
         status: r.status,
         checkedInAt: r.checkedInAt,
         createdAt: r.createdAt,
+        accompanyingPersons: (r.accompanyingPersons as any[]) || [],
         person: {
           id: r.person.id,
           name: `${r.person.firstName} ${r.person.lastName}`,
@@ -147,7 +152,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Validation failed', details: parsed.error.issues }, { status: 400 });
     }
 
-    const { eventId, firstName, lastName, email, phone, company, jobTitle, photoUrl } = parsed.data;
+    const { eventId, firstName, lastName, email, phone, company, jobTitle, photoUrl, accompanyingPersons } = parsed.data;
 
     // 1. Find or create Person
     const person = await prisma.person.upsert({
@@ -265,6 +270,7 @@ export async function POST(request: Request) {
               ticketCode,
               qrTokenHash: tokenHash,
               status: 'CONFIRMED',
+              accompanyingPersons: accompanyingPersons && accompanyingPersons.length > 0 ? (accompanyingPersons as any) : Prisma.JsonNull,
             },
           });
 

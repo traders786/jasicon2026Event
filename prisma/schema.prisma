@@ -128,8 +128,9 @@ model EventRegistration {
   ticketCode    String             @unique // Human-readable ticket reference e.g. EC-2026-0001
   qrTokenHash   String             @unique // SHA-256 hash of random bearer token
   status        RegistrationStatus @default(CONFIRMED)
-  checkedInAt   DateTime?
-  createdAt     DateTime           @default(now())
+  checkedInAt         DateTime?
+  accompanyingPersons Json?              // Array of { name: string, relation?: string }
+  createdAt           DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
   person       Person          @relation(fields: [personId], references: [id], onDelete: Restrict)

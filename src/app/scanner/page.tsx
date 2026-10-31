@@ -36,6 +36,7 @@ interface LookupResult {
   ticketCode: string;
   status: string;
   checkedInAt: string | null;
+  accompanyingPersons?: Array<{ name: string; relation?: string }> | null;
   person: {
     name: string;
     email: string;
@@ -1362,6 +1363,26 @@ export default function ScannerPage() {
                   {data.person.jobTitle ? `${data.person.jobTitle} • ` : ''}
                   {data.person.company || 'Individual Attendee'} • {data.person.email}
                 </div>
+                {data.accompanyingPersons && data.accompanyingPersons.length > 0 && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      color: '#065f46',
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      marginTop: '4px',
+                    }}
+                  >
+                    <span>👥</span>
+                    <span>Accompanied by {data.accompanyingPersons.length} {data.accompanyingPersons.length === 1 ? 'Guest' : 'Guests'}: {data.accompanyingPersons.map((a) => `${a.name}${a.relation ? ` (${a.relation})` : ''}`).join(', ')}</span>
+                  </div>
+                )}
               </div>
             </div>
 
