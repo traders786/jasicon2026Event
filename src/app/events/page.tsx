@@ -50,6 +50,12 @@ export default function EventsManagementPage() {
   const [editWhatsapp, setEditWhatsapp] = useState('');
   const [editLogoUrl, setEditLogoUrl] = useState('');
 
+  // Delete Conference 2-step confirmation state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   // Station Customization State
   const [editStations, setEditStations] = useState<Array<{ code: string; label: string; category: string; icon: string }>>([]);
   const [newStationCode, setNewStationCode] = useState('');
@@ -196,6 +202,30 @@ export default function EventsManagementPage() {
       }
     } catch {
       setFeedback({ type: 'error', text: 'Failed to switch active event' });
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!selectedEvent) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/events/${selectedEvent.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete conference');
+      }
+      setDeleteModalOpen(false);
+      setDeleteConfirmText('');
+      setSelectedEvent(null);
+      setFeedback({ type: 'success', text: data.message || 'Conference deleted permanently.' });
+      loadEvents();
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : 'Error deleting conference');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -915,10 +945,135 @@ export default function EventsManagementPage() {
                   {saving ? 'Saving Changes...' : '💾 Save Event Branding'}
                 </button>
               </div>
+
+              {/* Danger Zone: Permanent Deletion */}
+              <div style={{ border: '1px solid #fecaca', borderRadius: '14px', padding: '1.25rem', background: '#fff5f5', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>⚠️</span> Danger Zone: Delete Conference
+                    </h4>
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: '#991b1b', marginTop: '3px' }}>
+                      Permanently remove <strong>{selectedEvent.title}</strong>, including all its attendees, scan logs, and staff assignments.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteConfirmText('');
+                      setDeleteError(null);
+                      setDeleteModalOpen(true);
+                    }}
+                    className="btn btn-sm"
+                    style={{ background: '#ef4444', color: '#ffffff', fontWeight: 700, padding: '8px 16px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    🗑️ Delete Conference
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
         )}
       </div>
+
+      {/* 2-Step Permanent Event Deletion Confirmation Modal */}
+      {deleteModalOpen && selectedEvent && (
+        <div
+          className="profile-modal-overlay"
+          onClick={() => !isDeleting && setDeleteModalOpen(false)}
+          style={{ zIndex: 999999 }}
+        >
+          <div
+            className="profile-modal-card"
+            style={{ maxWidth: '520px', padding: '1.75rem', border: '2px solid #ef4444' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', flexShrink: 0 }}>
+                ⚠️
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#dc2626' }}>
+                  Delete Conference: {selectedEvent.title}
+                </h3>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  Step 2 of 2: Security Verification Required
+                </span>
+              </div>
+            </div>
+
+            {deleteError && (
+              <div style={{ padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 600 }}>
+                {deleteError}
+              </div>
+            )}
+
+            <div style={{ background: '#f8fafc', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '1rem', marginBottom: '1.25rem', fontSize: '0.84rem' }}>
+              <div style={{ fontWeight: 700, color: 'var(--text-heading)', marginBottom: '6px' }}>
+                Impact Summary:
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '1.25rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                <li><strong>{selectedEvent.registrationsCount || 0}</strong> attendee registrations will be erased.</li>
+                <li>All meal and session entitlement scan histories will be deleted.</li>
+                <li><strong>{selectedEvent.staffCount || 0}</strong> assigned staff accounts will be unassigned.</li>
+                <li style={{ color: '#dc2626', fontWeight: 700 }}>This action is permanent and cannot be undone.</li>
+              </ul>
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-heading)' }}>
+                To confirm permanent deletion, type <code style={{ color: '#dc2626', background: '#fee2e2', padding: '2px 6px', borderRadius: '4px' }}>DELETE {selectedEvent.title.toUpperCase()}</code> below:
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={`DELETE ${selectedEvent.title.toUpperCase()}`}
+                className="form-input"
+                style={{ width: '100%', fontFamily: 'monospace', fontWeight: 700, fontSize: '0.9rem', borderColor: '#ef4444' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={isDeleting}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteEvent}
+                disabled={
+                  isDeleting ||
+                  deleteConfirmText.trim().toUpperCase() !== `DELETE ${selectedEvent.title.trim().toUpperCase()}`
+                }
+                className="btn btn-sm"
+                style={{
+                  background:
+                    deleteConfirmText.trim().toUpperCase() === `DELETE ${selectedEvent.title.trim().toUpperCase()}`
+                      ? '#ef4444'
+                      : '#cbd5e1',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor:
+                    deleteConfirmText.trim().toUpperCase() === `DELETE ${selectedEvent.title.trim().toUpperCase()}`
+                      ? 'pointer'
+                      : 'not-allowed',
+                }}
+              >
+                {isDeleting ? 'Deleting Conference...' : 'Permanently Delete Event'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create New Conference Modal */}
       <CreateEventModal

@@ -28,7 +28,6 @@ export async function GET(request: Request) {
         startDate: true,
         endDate: true,
         isActive: true,
-        logoUrl: true,
       },
     });
 

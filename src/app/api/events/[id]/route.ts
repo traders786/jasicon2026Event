@@ -83,3 +83,84 @@ export async function PATCH(
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await requireAdmin();
+    if (!auth.authorized) {
+      return NextResponse.json({ error: 'Super Administrator privileges required' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            registrations: true,
+            users: true,
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      return NextResponse.json({ error: 'Conference event not found' }, { status: 404 });
+    }
+
+    // Atomic cascade deletion of all event data
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete scan logs
+      await tx.redemptionLog.deleteMany({
+        where: {
+          registration: {
+            eventId: id,
+          },
+        },
+      });
+
+      // 2. Delete entitlements
+      await tx.entitlement.deleteMany({
+        where: {
+          registration: {
+            eventId: id,
+          },
+        },
+      });
+
+      // 3. Delete event registrations
+      await tx.eventRegistration.deleteMany({
+        where: {
+          eventId: id,
+        },
+      });
+
+      // 4. Unassign users
+      await tx.user.updateMany({
+        where: {
+          assignedEventId: id,
+        },
+        data: {
+          assignedEventId: null,
+          assignedStationCode: null,
+        },
+      });
+
+      // 5. Delete the event record
+      await tx.event.delete({
+        where: { id },
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Conference "${event.title}" permanently deleted.`,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Failed to delete event';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

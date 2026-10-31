@@ -318,9 +318,9 @@ Organizing Committee, ${confTitle}`;
   const [reconcileError, setReconcileError] = useState<string | null>(null);
   const reconcileFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch placeholder count once on mount or when refreshKey changes (decoupled from search)
+  // Fetch lightweight placeholder count once on mount or when refreshKey changes (decoupled from search)
   useEffect(() => {
-    fetch('/api/registrations/reconcile')
+    fetch('/api/registrations/reconcile?countOnly=true')
       .then((res) => (res.ok ? res.json() : null))
       .then((recData) => {
         if (recData && typeof recData.placeholderCount === 'number') {
@@ -962,6 +962,8 @@ Organizing Committee, ${confTitle}`;
                               src={p.person.photoUrl}
                               alt={p.person.name}
                               className="attendee-mini-avatar"
+                              loading="lazy"
+                              decoding="async"
                             />
                           ) : (
                             <div className="attendee-mini-avatar-placeholder">

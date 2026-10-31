@@ -62,14 +62,28 @@ export async function GET(request: Request) {
         orderBy: { createdAt: 'desc' },
         ...(isPaginated ? { skip, take: limit } : {}),
         include: {
-          person: true,
-          event: true,
-          entitlements: {
+          person: {
             select: {
               id: true,
-              category: true,
-              code: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              company: true,
+              jobTitle: true,
+              photoUrl: true,
+            },
+          },
+          event: {
+            select: {
+              id: true,
               title: true,
+              venue: true,
+            },
+          },
+          entitlements: {
+            select: {
+              category: true,
               status: true,
             },
           },

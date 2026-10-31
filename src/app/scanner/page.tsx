@@ -118,29 +118,40 @@ export default function ScannerPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((d) => {
         if (d?.authenticated && d.user) {
-          if (d.user.role === 'OPERATOR') {
-            router.replace('/participants');
-            return;
-          }
           setCurrentUserRole(d.user.role);
           setCurrentUserName(d.user.name);
           if (d.user.role === 'VENDOR') {
             setStationMode(true);
+          } else if (d.user.role === 'OPERATOR') {
+            // Operators default to Station Mode if counters assigned, or general desk scanner
+            setStationMode(true);
           }
 
-          // Dynamically load active event's stations!
-          const evStations = d.event?.stations;
-          if (Array.isArray(evStations) && evStations.length > 0) {
-            setStationsList(evStations);
-            stationsListRef.current = evStations;
+          // Dynamically load active event's stations and filter by staff assigned counters!
+          const evStations = Array.isArray(d.event?.stations) && d.event.stations.length > 0
+            ? d.event.stations
+            : AUTHORIZED_STATIONS;
 
-            if (d.user.assignedStationCode) {
-              setSelectedStationCode(d.user.assignedStationCode);
-              selectedStationCodeRef.current = d.user.assignedStationCode;
-            } else if (!evStations.some((s: any) => s.code === selectedStationCodeRef.current)) {
-              setSelectedStationCode(evStations[0].code);
-              selectedStationCodeRef.current = evStations[0].code;
+          const assignedCode = d.user.assignedStationCode?.trim();
+          let permittedStations = evStations;
+
+          if (assignedCode && assignedCode !== 'ALL') {
+            const permittedList = assignedCode.split(',').map((s: string) => s.trim()).filter(Boolean);
+            if (permittedList.length > 0) {
+              const permittedSet = new Set(permittedList);
+              const matched = evStations.filter((s: any) => permittedSet.has(s.code));
+              if (matched.length > 0) {
+                permittedStations = matched;
+              }
             }
+          }
+
+          setStationsList(permittedStations);
+          stationsListRef.current = permittedStations;
+
+          if (permittedStations.length > 0) {
+            setSelectedStationCode(permittedStations[0].code);
+            selectedStationCodeRef.current = permittedStations[0].code;
           }
         }
       })

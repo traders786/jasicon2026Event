@@ -55,6 +55,8 @@ export default function UsersManagementPage() {
   const [formRole, setFormRole] = useState<'OPERATOR' | 'VENDOR' | 'ADMIN' | 'VOLUNTEER'>('OPERATOR');
   const [formEventId, setFormEventId] = useState<string>('');
   const [formStationCode, setFormStationCode] = useState<string>('');
+  const [formAllStations, setFormAllStations] = useState<boolean>(true);
+  const [formStationCodes, setFormStationCodes] = useState<string[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [submittingAdd, setSubmittingAdd] = useState(false);
   const [addFormError, setAddFormError] = useState<string | null>(null);
@@ -77,6 +79,8 @@ export default function UsersManagementPage() {
   const [editIsActive, setEditIsActive] = useState(true);
   const [editEventId, setEditEventId] = useState<string>('');
   const [editStationCode, setEditStationCode] = useState<string>('');
+  const [editAllStations, setEditAllStations] = useState<boolean>(true);
+  const [editStationCodes, setEditStationCodes] = useState<string[]>([]);
   const [submittingEdit, setSubmittingEdit] = useState(false);
   const [editFormError, setEditFormError] = useState<string | null>(null);
 
@@ -187,6 +191,12 @@ export default function UsersManagementPage() {
     try {
       setSubmittingAdd(true);
       const selectedEv = eventsList.find((e) => e.id === formEventId);
+      const finalStationCode = formAllStations
+        ? 'ALL'
+        : formStationCodes.length > 0
+        ? formStationCodes.join(',')
+        : 'ALL';
+
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -196,7 +206,7 @@ export default function UsersManagementPage() {
           password,
           role: formRole,
           assignedEventId: formEventId || null,
-          assignedStationCode: formRole === 'VENDOR' ? (formStationCode || null) : null,
+          assignedStationCode: finalStationCode,
         }),
       });
 
@@ -213,7 +223,7 @@ export default function UsersManagementPage() {
         role: formRole,
         eventTitle: selectedEv?.title,
         eventSlug: selectedEv?.slug,
-        stationCode: formRole === 'VENDOR' ? formStationCode : undefined,
+        stationCode: finalStationCode,
       });
 
       setIsAddModalOpen(false);
@@ -222,6 +232,8 @@ export default function UsersManagementPage() {
       setFormPassword('');
       setFormRole('OPERATOR');
       setFormStationCode('');
+      setFormAllStations(true);
+      setFormStationCodes([]);
       await loadUsers();
       showToast(`Staff account "${name}" created successfully!`);
     } catch (err: unknown) {
@@ -239,7 +251,16 @@ export default function UsersManagementPage() {
     setEditPassword('');
     setEditIsActive(u.isActive);
     setEditEventId(u.assignedEventId || '');
-    setEditStationCode(u.assignedStationCode || '');
+    const codeStr = u.assignedStationCode?.trim() || '';
+    if (!codeStr || codeStr === 'ALL') {
+      setEditAllStations(true);
+      setEditStationCodes([]);
+      setEditStationCode('ALL');
+    } else {
+      setEditAllStations(false);
+      setEditStationCodes(codeStr.split(',').map((c) => c.trim()).filter(Boolean));
+      setEditStationCode(codeStr);
+    }
     setEditFormError(null);
   };
 
@@ -265,7 +286,11 @@ export default function UsersManagementPage() {
         role: editRole,
         isActive: editIsActive,
         assignedEventId: editEventId || null,
-        assignedStationCode: editRole === 'VENDOR' ? (editStationCode || null) : null,
+        assignedStationCode: editAllStations
+          ? 'ALL'
+          : editStationCodes.length > 0
+          ? editStationCodes.join(',')
+          : 'ALL',
       };
 
       if (editPassword.trim()) {
@@ -804,24 +829,46 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                             <span>🏛️</span>
                             <span>{u.assignedEvent?.title || 'Global / Unassigned'}</span>
                           </span>
-                          {u.assignedStationCode && (
+                          {u.assignedStationCode && u.assignedStationCode !== 'ALL' ? (
+                            u.assignedStationCode.split(',').map((sc) => (
+                              <span
+                                key={sc}
+                                style={{
+                                  fontSize: '0.72rem',
+                                  background: '#fef3c7',
+                                  border: '1px solid #fde68a',
+                                  borderRadius: '6px',
+                                  padding: '2px 7px',
+                                  color: '#92400e',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                                title={`Permitted Counter: ${sc.trim()}`}
+                              >
+                                <span>🍽️</span>
+                                <span>{sc.trim()}</span>
+                              </span>
+                            ))
+                          ) : (
                             <span
                               style={{
                                 fontSize: '0.72rem',
-                                background: '#fef3c7',
-                                border: '1px solid #fde68a',
+                                background: '#ecfdf5',
+                                border: '1px solid #a7f3d0',
                                 borderRadius: '6px',
                                 padding: '2px 7px',
-                                color: '#92400e',
+                                color: '#065f46',
                                 fontWeight: 700,
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '4px',
                               }}
-                              title="Locked Station Counter"
+                              title="Authorized for all check-in & entitlement counters"
                             >
-                              <span>🍽️</span>
-                              <span>{u.assignedStationCode}</span>
+                              <span>📷</span>
+                              <span>All Counters</span>
                             </span>
                           )}
                         </div>
@@ -1035,7 +1082,7 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                       <span>💻</span> Registration Desk
                     </div>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                      Check-in, spot registrations, badge printing. <strong>No scanner access.</strong>
+                      Check-in, spot registrations, badge printing &amp; QR scanner.
                     </div>
                   </label>
 
@@ -1162,32 +1209,205 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                 </span>
               </div>
 
-              {/* If Vendor, select specific Station Counter */}
-              {formRole === 'VENDOR' && (
-                <div>
-                  <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-heading)' }}>
-                    🍽️ Assigned Station / Meal Counter *
-                  </label>
-                  <select
-                    value={formStationCode}
-                    onChange={(e) => setFormStationCode(e.target.value)}
-                    className="form-control"
-                    style={{ width: '100%' }}
-                  >
-                    <option value="">All Stations (Unrestricted scanning for this conference)</option>
-                    {(() => {
-                      const selEv = eventsList.find((e) => e.id === formEventId);
-                      const stList: Array<{ code: string; label?: string; title?: string }> = Array.isArray(selEv?.stations) ? selEv.stations : [];
-                      return stList.map((s) => (
-                        <option key={s.code} value={s.code}>
-                          {s.label || s.title || s.code} ({s.code})
-                        </option>
-                      ));
-                    })()}
-                  </select>
-                  <span style={{ fontSize: '0.74rem', color: '#b45309', marginTop: '4px', display: 'block', fontWeight: 600 }}>
-                    🔒 Security: This vendor will ONLY be authorized to scan and redeem this specific counter.
-                  </span>
+              {/* Scanner Station / Counter Permissions */}
+              {(formRole === 'OPERATOR' || formRole === 'VENDOR') && (
+                <div
+                  style={{
+                    background: 'var(--bg-subtle, #f8fafc)',
+                    border: '1px solid var(--border-color, #e2e8f0)',
+                    borderRadius: '12px',
+                    padding: '14px 16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-heading)', margin: 0 }}>
+                      🍽️ Scanner Station &amp; Counter Permissions *
+                    </label>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      QR scanner access control
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
+                    Choose which check-in counters (meals, kits, sessions) this account is permitted to scan.
+                  </p>
+
+                  {/* Toggle: All vs Custom */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormAllStations(true);
+                        setFormStationCodes([]);
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: formAllStations ? '2px solid #0d625e' : '1px solid #cbd5e1',
+                        background: formAllStations ? '#f0fdf4' : '#ffffff',
+                        color: formAllStations ? '#065f46' : 'var(--text-main)',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <span>{formAllStations ? '✓' : '○'}</span>
+                      <span>All Counters (Full Scanner)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormAllStations(false);
+                        const selEv = eventsList.find((e) => e.id === formEventId);
+                        const stList: Array<{ code: string }> = Array.isArray(selEv?.stations) ? selEv.stations : [];
+                        if (formStationCodes.length === 0 && stList.length > 0) {
+                          setFormStationCodes([stList[0].code]);
+                        }
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: !formAllStations ? '2px solid #d97706' : '1px solid #cbd5e1',
+                        background: !formAllStations ? '#fffbeb' : '#ffffff',
+                        color: !formAllStations ? '#92400e' : 'var(--text-main)',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <span>{!formAllStations ? '✓' : '○'}</span>
+                      <span>Specific Counters Only</span>
+                    </button>
+                  </div>
+
+                  {/* Specific Counter Checkboxes */}
+                  {!formAllStations && (
+                    <div style={{ marginTop: '8px' }}>
+                      {(() => {
+                        const selEv = eventsList.find((e) => e.id === formEventId);
+                        const stList: Array<{ code: string; label?: string; title?: string; type?: string }> = Array.isArray(selEv?.stations) ? selEv.stations : [];
+
+                        if (stList.length === 0) {
+                          return (
+                            <div style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', fontSize: '0.78rem', color: '#92400e' }}>
+                              ⚠️ No check-in stations configured for this conference yet. Add meal/kit counters in <strong>Event Studio</strong>.
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                Selected ({formStationCodes.length} of {stList.length}):
+                              </span>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setFormStationCodes(stList.map((s) => s.code))}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#0d625e',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                  }}
+                                >
+                                  Select All
+                                </button>
+                                <span style={{ color: '#cbd5e1' }}>|</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setFormStationCodes([])}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#dc2626',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                  }}
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                              {stList.map((st) => {
+                                const isChecked = formStationCodes.includes(st.code);
+                                const isMeal = st.type === 'MEAL' || st.code.toLowerCase().includes('meal') || st.code.toLowerCase().includes('lunch') || st.code.toLowerCase().includes('dinner');
+                                const isKit = st.type === 'KIT' || st.code.toLowerCase().includes('kit');
+                                const icon = isKit ? '🎒' : isMeal ? '🍽️' : '🎤';
+
+                                return (
+                                  <label
+                                    key={st.code}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '10px',
+                                      padding: '8px 12px',
+                                      borderRadius: '8px',
+                                      border: isChecked ? '1.5px solid #0d625e' : '1px solid #e2e8f0',
+                                      background: isChecked ? '#f0fdf4' : '#ffffff',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s ease',
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setFormStationCodes((prev) => [...prev, st.code]);
+                                        } else {
+                                          setFormStationCodes((prev) => prev.filter((c) => c !== st.code));
+                                        }
+                                      }}
+                                      style={{ width: '16px', height: '16px', accentColor: '#0d625e' }}
+                                    />
+                                    <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontWeight: 700, fontSize: '0.82rem', color: isChecked ? '#065f46' : 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {st.title || st.label || st.code}
+                                      </div>
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                        Counter Code: <code>{st.code}</code>
+                                      </div>
+                                    </div>
+                                    <span
+                                      style={{
+                                        fontSize: '0.65rem',
+                                        fontWeight: 700,
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        background: isKit ? '#fce7f3' : isMeal ? '#ecfdf5' : '#eff6ff',
+                                        color: isKit ? '#be185d' : isMeal ? '#047857' : '#1d4ed8',
+                                      }}
+                                    >
+                                      {st.type || (isKit ? 'KIT' : isMeal ? 'MEAL' : 'SESSION')}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1366,9 +1586,9 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
               </div>
               {createdCredentials.stationCode && (
                 <div>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Locked Counter:</span>
-                  <span style={{ fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '2px 8px', borderRadius: '6px' }}>
-                    🍽️ {createdCredentials.stationCode}
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Scanner Station Permissions:</span>
+                  <span style={{ fontWeight: 700, fontSize: '0.82rem', color: createdCredentials.stationCode === 'ALL' ? '#065f46' : '#b45309', background: createdCredentials.stationCode === 'ALL' ? '#ecfdf5' : '#fef3c7', padding: '2px 8px', borderRadius: '6px' }}>
+                    {createdCredentials.stationCode === 'ALL' ? '📷 All Counters (Unrestricted)' : `🍽️ ${createdCredentials.stationCode}`}
                   </span>
                 </div>
               )}
@@ -1552,7 +1772,7 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                   className="form-control"
                   style={{ width: '100%' }}
                 >
-                  <option value="OPERATOR">💻 Registration Desk Operator (Check-in, Badges - No Scanner)</option>
+                  <option value="OPERATOR">💻 Registration Desk Operator (Desk, Badges &amp; QR Scanner)</option>
                   <option value="VENDOR">📷 Vendor Station Scanner (Meals &amp; Kits Only)</option>
                   <option value="ADMIN">🛡️ Super Administrator (Full Control)</option>
                   <option value="VOLUNTEER">🤝 Volunteer (Read-Only)</option>
@@ -1585,29 +1805,205 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                 </span>
               </div>
 
-              {/* If Vendor, Station Counter */}
-              {editRole === 'VENDOR' && (
-                <div>
-                  <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-heading)' }}>
-                    🍽️ Assigned Station / Meal Counter
-                  </label>
-                  <select
-                    value={editStationCode}
-                    onChange={(e) => setEditStationCode(e.target.value)}
-                    className="form-control"
-                    style={{ width: '100%' }}
-                  >
-                    <option value="">All Stations (Unrestricted scanning for this conference)</option>
-                    {(() => {
-                      const selEv = eventsList.find((e) => e.id === editEventId);
-                      const stList: Array<{ code: string; label?: string; title?: string }> = Array.isArray(selEv?.stations) ? selEv.stations : [];
-                      return stList.map((s) => (
-                        <option key={s.code} value={s.code}>
-                          {s.label || s.title || s.code} ({s.code})
-                        </option>
-                      ));
-                    })()}
-                  </select>
+              {/* Scanner Station / Counter Permissions */}
+              {(editRole === 'OPERATOR' || editRole === 'VENDOR') && (
+                <div
+                  style={{
+                    background: 'var(--bg-subtle, #f8fafc)',
+                    border: '1px solid var(--border-color, #e2e8f0)',
+                    borderRadius: '12px',
+                    padding: '14px 16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-heading)', margin: 0 }}>
+                      🍽️ Scanner Station &amp; Counter Permissions
+                    </label>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      QR scanner access control
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
+                    Choose which entitlement counters (meals, kits, sessions) this account is permitted to scan.
+                  </p>
+
+                  {/* Toggle: All vs Custom */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditAllStations(true);
+                        setEditStationCodes([]);
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: editAllStations ? '2px solid #0d625e' : '1px solid #cbd5e1',
+                        background: editAllStations ? '#f0fdf4' : '#ffffff',
+                        color: editAllStations ? '#065f46' : 'var(--text-main)',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <span>{editAllStations ? '✓' : '○'}</span>
+                      <span>All Counters (Full Scanner)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditAllStations(false);
+                        const selEv = eventsList.find((e) => e.id === editEventId);
+                        const stList: Array<{ code: string }> = Array.isArray(selEv?.stations) ? selEv.stations : [];
+                        if (editStationCodes.length === 0 && stList.length > 0) {
+                          setEditStationCodes([stList[0].code]);
+                        }
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: !editAllStations ? '2px solid #d97706' : '1px solid #cbd5e1',
+                        background: !editAllStations ? '#fffbeb' : '#ffffff',
+                        color: !editAllStations ? '#92400e' : 'var(--text-main)',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <span>{!editAllStations ? '✓' : '○'}</span>
+                      <span>Specific Counters Only</span>
+                    </button>
+                  </div>
+
+                  {/* Specific Counter Checkboxes */}
+                  {!editAllStations && (
+                    <div style={{ marginTop: '8px' }}>
+                      {(() => {
+                        const selEv = eventsList.find((e) => e.id === editEventId);
+                        const stList: Array<{ code: string; label?: string; title?: string; type?: string }> = Array.isArray(selEv?.stations) ? selEv.stations : [];
+
+                        if (stList.length === 0) {
+                          return (
+                            <div style={{ padding: '10px', background: '#fef3c7', borderRadius: '8px', fontSize: '0.78rem', color: '#92400e' }}>
+                              ⚠️ No check-in stations configured for this conference yet. Add meal/kit counters in <strong>Event Studio</strong>.
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                Selected ({editStationCodes.length} of {stList.length}):
+                              </span>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditStationCodes(stList.map((s) => s.code))}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#0d625e',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                  }}
+                                >
+                                  Select All
+                                </button>
+                                <span style={{ color: '#cbd5e1' }}>|</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditStationCodes([])}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#dc2626',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                  }}
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                              {stList.map((st) => {
+                                const isChecked = editStationCodes.includes(st.code);
+                                const isMeal = st.type === 'MEAL' || st.code.toLowerCase().includes('meal') || st.code.toLowerCase().includes('lunch') || st.code.toLowerCase().includes('dinner');
+                                const isKit = st.type === 'KIT' || st.code.toLowerCase().includes('kit');
+                                const icon = isKit ? '🎒' : isMeal ? '🍽️' : '🎤';
+
+                                return (
+                                  <label
+                                    key={st.code}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '10px',
+                                      padding: '8px 12px',
+                                      borderRadius: '8px',
+                                      border: isChecked ? '1.5px solid #0d625e' : '1px solid #e2e8f0',
+                                      background: isChecked ? '#f0fdf4' : '#ffffff',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s ease',
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setEditStationCodes((prev) => [...prev, st.code]);
+                                        } else {
+                                          setEditStationCodes((prev) => prev.filter((c) => c !== st.code));
+                                        }
+                                      }}
+                                      style={{ width: '16px', height: '16px', accentColor: '#0d625e' }}
+                                    />
+                                    <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontWeight: 700, fontSize: '0.82rem', color: isChecked ? '#065f46' : 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {st.title || st.label || st.code}
+                                      </div>
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                        Counter Code: <code>{st.code}</code>
+                                      </div>
+                                    </div>
+                                    <span
+                                      style={{
+                                        fontSize: '0.65rem',
+                                        fontWeight: 700,
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        background: isKit ? '#fce7f3' : isMeal ? '#ecfdf5' : '#eff6ff',
+                                        color: isKit ? '#be185d' : isMeal ? '#047857' : '#1d4ed8',
+                                      }}
+                                    >
+                                      {st.type || (isKit ? 'KIT' : isMeal ? 'MEAL' : 'SESSION')}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
               )}
 

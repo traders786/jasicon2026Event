@@ -4,7 +4,7 @@ import { parseSpreadsheet } from '@/lib/spreadsheet';
 import { requireAdmin } from '@/lib/auth';
 import { getEventContext } from '@/lib/event-context';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const auth = await requireAdmin();
     if (!auth.authorized) {
@@ -14,6 +14,27 @@ export async function GET() {
     const eventCtx = await getEventContext();
     const eventId = eventCtx?.eventId;
     const eventFilter = eventId ? { eventId } : {};
+
+    const { searchParams } = new URL(request.url);
+    const countOnly = searchParams.get('countOnly') === 'true';
+
+    if (countOnly) {
+      const placeholderCount = await prisma.person.count({
+        where: {
+          OR: [
+            { firstName: 'Guest', lastName: 'Participant' },
+            { email: { contains: '@attendee.eventcheck.local' } },
+          ],
+          registrations: {
+            some: eventFilter,
+          },
+        },
+      });
+      return NextResponse.json({
+        placeholderCount,
+        registrations: [],
+      });
+    }
 
     const placeholderPeople = await prisma.person.findMany({
       where: {

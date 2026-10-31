@@ -65,13 +65,11 @@ export function middleware(request: NextRequest) {
   }
 
   // OPERATOR (Registration Desk Staff):
-  // Has access to /participants and /register.
-  // Must NOT have access to /scanner, /audit, /backend, or /users.
+  // Has access to /participants, /register, and /scanner.
+  // Must NOT have access to Super Admin governance pages: /audit, /backend, or /users.
   if (session.role === 'OPERATOR') {
     if (
       pathname === '/' ||
-      pathname === '/scanner' ||
-      pathname.startsWith('/scanner/') ||
       pathname === '/audit' ||
       pathname === '/backend' ||
       pathname === '/users' ||

@@ -97,6 +97,7 @@ export function HeaderNav({
     if (userRole === 'OPERATOR') {
       return [
         { href: '/participants', label: 'Participants', icon: '👥' },
+        { href: '/scanner', label: 'QR Scanner', icon: '📷' },
         { href: '/register', label: 'New Registration', icon: '➕' },
       ];
     }
