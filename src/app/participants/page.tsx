@@ -117,10 +117,6 @@ export default function ParticipantsPage() {
 
   // PDF Export state
   const [exportingPdf, setExportingPdf] = useState(false);
-  const pdfPrintContainerRef = useRef<HTMLDivElement>(null);
-  const [pdfParticipants, setPdfParticipants] = useState<ParticipantItem[]>([]);
-  const [pdfEventInfo, setPdfEventInfo] = useState<{ title: string; venue: string } | null>(null);
-  const [pdfGeneratedDate, setPdfGeneratedDate] = useState<string>('');
 
   // Fetch current user role once
   useEffect(() => {
@@ -581,72 +577,139 @@ Organizing Committee, ${confTitle}`;
   const handleExportPdf = async () => {
     try {
       setExportingPdf(true);
-      setPdfGeneratedDate(new Date().toLocaleString());
       const queryParam = appliedQuery ? `&q=${encodeURIComponent(appliedQuery)}` : '';
       const res = await fetch(`/api/registrations?limit=1000${queryParam}`);
       if (!res.ok) throw new Error('Failed to fetch participant directory');
       const json = await res.json();
       const allRows: ParticipantItem[] = json.registrations || participants;
 
-      setPdfParticipants(allRows);
-      if (allRows.length > 0 && allRows[0].event) {
-        setPdfEventInfo(allRows[0].event);
-      }
+      const eventTitle = allRows[0]?.event?.title || 'Conference Event';
+      const eventVenue = allRows[0]?.event?.venue || 'Official Venue';
 
-      // Small pause to allow React to render the printable container
-      await new Promise((resolve) => setTimeout(resolve, 350));
-
-      const html2canvas = (await import('html2canvas')).default;
       const { jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
 
-      if (!pdfPrintContainerRef.current) {
-        throw new Error('PDF printable container ref not found');
-      }
-
-      const container = pdfPrintContainerRef.current;
-      container.style.display = 'block';
-
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-      });
-
-      container.style.display = 'none';
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
+      const doc = new jsPDF({
         orientation: 'landscape',
         unit: 'pt',
         format: 'a4',
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const ratio = canvasWidth / pdfWidth;
-      const totalPdfHeight = canvasHeight / ratio;
+      const pageWidth = doc.internal.pageSize.getWidth();
 
-      let position = 0;
-      let heightLeft = totalPdfHeight;
+      // Top Header Title & Metadata
+      doc.setFontSize(15);
+      doc.setTextColor(13, 98, 94); // Teal #0d625e
+      doc.setFont('helvetica', 'bold');
+      doc.text(eventTitle, 30, 34);
 
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalPdfHeight);
-      heightLeft -= pdfHeight;
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139); // Slate #64748b
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Venue: ${eventVenue}  |  Official Attendee Directory & Attendance Report`, 30, 48);
 
-      while (heightLeft > 0) {
-        position = heightLeft - totalPdfHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalPdfHeight);
-        heightLeft -= pdfHeight;
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42); // Heading dark
+      doc.setFont('helvetica', 'bold');
+      const dateStr = new Date().toLocaleString();
+      doc.text(`Total Registered Attendees: ${allRows.length}  |  Generated: ${dateStr}`, pageWidth - 30, 40, { align: 'right' });
+
+      // Clean top accent divider
+      doc.setDrawColor(13, 98, 94);
+      doc.setLineWidth(1.5);
+      doc.line(30, 56, pageWidth - 30, 56);
+
+      // AutoTable renders crisp vector data without any row slicing or text cutting across pages
+      autoTable(doc, {
+        startY: 64,
+        margin: { left: 30, right: 30, top: 64, bottom: 35 },
+        head: [[
+          '#',
+          'Ticket Code',
+          'Attendee Name & Title',
+          'Institution / Organization',
+          'Contact Info (Email & Phone)',
+          'Status',
+          'Meals',
+          'Sessions',
+        ]],
+        body: allRows.map((p, idx) => [
+          (idx + 1).toString(),
+          p.ticketCode,
+          p.person.jobTitle ? `${p.person.name}\n${p.person.jobTitle}` : p.person.name,
+          p.person.company || '—',
+          p.person.phone ? `${p.person.email}\n${p.person.phone}` : p.person.email,
+          p.status === 'CHECKED_IN' ? 'CHECKED-IN' : 'CONFIRMED',
+          `${p.entitlementsSummary.mealsRedeemed} / ${p.entitlementsSummary.mealsTotal}`,
+          `${p.entitlementsSummary.sessionsRedeemed} / ${p.entitlementsSummary.sessionsTotal}`,
+        ]),
+        styles: {
+          font: 'helvetica',
+          fontSize: 8,
+          cellPadding: 5.5,
+          overflow: 'linebreak',
+          valign: 'middle',
+          lineColor: [226, 232, 240],
+          lineWidth: 0.5,
+        },
+        headStyles: {
+          fillColor: [13, 98, 94], // Deep teal
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: 'left',
+          fontSize: 8.5,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252], // Crisp alternating slate
+        },
+        columnStyles: {
+          0: { cellWidth: 28, halign: 'center', textColor: [100, 116, 139] },
+          1: { cellWidth: 85, fontStyle: 'bold', textColor: [13, 98, 94] },
+          2: { cellWidth: 165, fontStyle: 'bold', textColor: [15, 23, 42] },
+          3: { cellWidth: 160, textColor: [51, 65, 85] },
+          4: { cellWidth: 165, textColor: [71, 85, 105], fontSize: 7.5 },
+          5: { cellWidth: 70, halign: 'center', fontStyle: 'bold' },
+          6: { cellWidth: 54, halign: 'center', textColor: [5, 150, 105], fontStyle: 'bold' },
+          7: { cellWidth: 54.89, halign: 'center', textColor: [13, 98, 94], fontStyle: 'bold' },
+        },
+        didParseCell: (data) => {
+          // Color status cell
+          if (data.section === 'body' && data.column.index === 5) {
+            if (data.cell.raw === 'CHECKED-IN') {
+              data.cell.styles.textColor = [4, 120, 87];
+              data.cell.styles.fillColor = [236, 253, 245];
+            } else {
+              data.cell.styles.textColor = [29, 78, 216];
+              data.cell.styles.fillColor = [239, 246, 255];
+            }
+          }
+        },
+      });
+
+      // Add page numbering on every page
+      const totalPages = (doc as any).getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184); // #94a3b8
+        doc.text(
+          'Evently Multi-Conference Platform — Confidential Attendee Directory',
+          30,
+          doc.internal.pageSize.getHeight() - 15
+        );
+        doc.text(
+          `Page ${i} of ${totalPages}`,
+          doc.internal.pageSize.getWidth() - 30,
+          doc.internal.pageSize.getHeight() - 15,
+          { align: 'right' }
+        );
       }
 
       const safeName = (allRows[0]?.event?.title || 'Attendees')
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '-');
       const dateStamp = new Date().toISOString().split('T')[0];
-      pdf.save(`${safeName}-participant-directory-${dateStamp}.pdf`);
+      doc.save(`${safeName}-participant-directory-${dateStamp}.pdf`);
     } catch (err) {
       console.error('PDF export failed:', err);
       window.print();
@@ -2309,126 +2372,6 @@ Organizing Committee, ${confTitle}`;
           </div>
         </div>
       )}
-
-      {/* ========================================================================= */}
-      {/* OFF-SCREEN PDF PRINTABLE DIRECTORY TEMPLATE (CLEAN, NO ACTION BUTTONS)    */}
-      {/* ========================================================================= */}
-      <div
-        ref={pdfPrintContainerRef}
-        style={{
-          display: 'none',
-          position: 'fixed',
-          left: '-9999px',
-          top: 0,
-          width: '1120px',
-          background: '#ffffff',
-          color: '#0f172a',
-          padding: '28px 32px',
-          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-          boxSizing: 'border-box',
-        }}
-      >
-        {/* Document Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2.5px solid #0d625e', paddingBottom: '16px', marginBottom: '20px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <span style={{ fontSize: '1.4rem' }}>🏛️</span>
-              <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0d625e', margin: 0 }}>
-                {pdfEventInfo?.title || 'Conference Event'}
-              </h1>
-            </div>
-            <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>
-              📍 {pdfEventInfo?.venue || 'Official Conference Venue'}
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
-              Official Participant Directory Report
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '3px' }}>
-              Generated on: {pdfGeneratedDate || 'Official Report'}
-            </div>
-            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#059669', marginTop: '2px' }}>
-              Total Registered Attendees: {pdfParticipants.length}
-            </div>
-          </div>
-        </div>
-
-        {/* Directory Table — No Action Buttons (Badge, WhatsApp, Profile, Delete) */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
-          <thead>
-            <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-              <th style={{ padding: '8px 6px', textAlign: 'center', width: '36px', color: '#334155', fontWeight: 700 }}>#</th>
-              <th style={{ padding: '8px 10px', textAlign: 'left', width: '130px', color: '#334155', fontWeight: 700 }}>Ticket Code</th>
-              <th style={{ padding: '8px 10px', textAlign: 'left', color: '#334155', fontWeight: 700 }}>Attendee Name &amp; Title</th>
-              <th style={{ padding: '8px 10px', textAlign: 'left', color: '#334155', fontWeight: 700 }}>Institution / Organization</th>
-              <th style={{ padding: '8px 10px', textAlign: 'left', color: '#334155', fontWeight: 700 }}>Contact Info</th>
-              <th style={{ padding: '8px 10px', textAlign: 'center', width: '95px', color: '#334155', fontWeight: 700 }}>Status</th>
-              <th style={{ padding: '8px 10px', textAlign: 'center', width: '90px', color: '#334155', fontWeight: 700 }}>Meals Redeemed</th>
-              <th style={{ padding: '8px 10px', textAlign: 'center', width: '90px', color: '#334155', fontWeight: 700 }}>Sessions Attended</th>
-              <th style={{ padding: '8px 10px', textAlign: 'right', width: '85px', color: '#334155', fontWeight: 700 }}>Date Reg.</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pdfParticipants.map((p, idx) => (
-              <tr
-                key={p.id}
-                style={{
-                  borderBottom: '1px solid #e2e8f0',
-                  background: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
-                }}
-              >
-                <td style={{ padding: '7px 6px', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{idx + 1}</td>
-                <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 800, color: '#0d625e' }}>{p.ticketCode}</td>
-                <td style={{ padding: '7px 10px' }}>
-                  <div style={{ fontWeight: 700, color: '#0f172a' }}>{p.person.name}</div>
-                  {p.person.jobTitle && (
-                    <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{p.person.jobTitle}</div>
-                  )}
-                </td>
-                <td style={{ padding: '7px 10px', color: '#334155' }}>
-                  {p.person.company || '—'}
-                </td>
-                <td style={{ padding: '7px 10px', color: '#475569', fontSize: '0.75rem' }}>
-                  <div>{p.person.email}</div>
-                  {p.person.phone && <div style={{ color: '#64748b' }}>{p.person.phone}</div>}
-                </td>
-                <td style={{ padding: '7px 10px', textAlign: 'center' }}>
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      padding: '2px 7px',
-                      borderRadius: '4px',
-                      fontSize: '0.68rem',
-                      fontWeight: 700,
-                      background: p.status === 'CHECKED_IN' ? '#ecfdf5' : '#eff6ff',
-                      color: p.status === 'CHECKED_IN' ? '#047857' : '#1d4ed8',
-                      border: p.status === 'CHECKED_IN' ? '1px solid #a7f3d0' : '1px solid #bfdbfe',
-                    }}
-                  >
-                    {p.status === 'CHECKED_IN' ? 'CHECKED-IN' : 'CONFIRMED'}
-                  </span>
-                </td>
-                <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, color: '#059669' }}>
-                  {p.entitlementsSummary.mealsRedeemed} / {p.entitlementsSummary.mealsTotal}
-                </td>
-                <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, color: '#0d625e' }}>
-                  {p.entitlementsSummary.sessionsRedeemed} / {p.entitlementsSummary.sessionsTotal}
-                </td>
-                <td style={{ padding: '7px 10px', textAlign: 'right', color: '#64748b', fontSize: '0.72rem', whiteSpace: 'nowrap' }}>
-                  {new Date(p.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* Footer */}
-        <div style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8' }}>
-          <span>Confidential — Internal Conference Registry</span>
-          <span>Evently Multi-Conference Platform</span>
-        </div>
-      </div>
     </div>
   );
 }
