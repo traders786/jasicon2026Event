@@ -2,14 +2,20 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateCsv } from '@/lib/csv';
 
-import { requireAdmin } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
 import { getEventContext } from '@/lib/event-context';
 
 export async function GET(request: Request) {
   try {
-    const auth = await requireAdmin();
-    if (!auth.authorized) {
-      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required. Please sign in.' }, { status: 401 });
+    }
+    if (session.role !== 'ADMIN' && session.role !== 'OPERATOR') {
+      return NextResponse.json(
+        { error: 'Forbidden. Admin or Desk Operator privileges required.' },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);

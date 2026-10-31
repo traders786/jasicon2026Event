@@ -8,6 +8,7 @@ interface StaffUser {
   id: string;
   email: string;
   name: string;
+  phone?: string | null;
   role: 'ADMIN' | 'OPERATOR' | 'VENDOR' | 'VOLUNTEER';
   isActive: boolean;
   assignedEventId?: string | null;
@@ -51,6 +52,7 @@ export default function UsersManagementPage() {
   // Form State for Adding User
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
+  const [formPhone, setFormPhone] = useState('');
   const [formPassword, setFormPassword] = useState('');
   const [formRole, setFormRole] = useState<'OPERATOR' | 'VENDOR' | 'ADMIN' | 'VOLUNTEER'>('OPERATOR');
   const [formEventId, setFormEventId] = useState<string>('');
@@ -65,6 +67,7 @@ export default function UsersManagementPage() {
   const [createdCredentials, setCreatedCredentials] = useState<{
     name: string;
     email: string;
+    phone?: string;
     passwordPlain: string;
     role: string;
     eventTitle?: string;
@@ -74,6 +77,7 @@ export default function UsersManagementPage() {
 
   // Form State for Editing User
   const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
   const [editRole, setEditRole] = useState<'OPERATOR' | 'VENDOR' | 'ADMIN' | 'VOLUNTEER'>('OPERATOR');
   const [editPassword, setEditPassword] = useState('');
   const [editIsActive, setEditIsActive] = useState(true);
@@ -203,6 +207,7 @@ export default function UsersManagementPage() {
         body: JSON.stringify({
           name,
           email,
+          phone: formPhone.trim() || undefined,
           password,
           role: formRole,
           assignedEventId: formEventId || null,
@@ -219,6 +224,7 @@ export default function UsersManagementPage() {
       setCreatedCredentials({
         name,
         email,
+        phone: formPhone.trim() || undefined,
         passwordPlain: password,
         role: formRole,
         eventTitle: selectedEv?.title,
@@ -229,6 +235,7 @@ export default function UsersManagementPage() {
       setIsAddModalOpen(false);
       setFormName('');
       setFormEmail('');
+      setFormPhone('');
       setFormPassword('');
       setFormRole('OPERATOR');
       setFormStationCode('');
@@ -247,6 +254,7 @@ export default function UsersManagementPage() {
   const openEditModal = (u: StaffUser) => {
     setEditingUser(u);
     setEditName(u.name);
+    setEditPhone(u.phone || '');
     setEditRole(u.role);
     setEditPassword('');
     setEditIsActive(u.isActive);
@@ -275,6 +283,7 @@ export default function UsersManagementPage() {
       const payload: {
         id: string;
         name: string;
+        phone?: string | null;
         role: 'ADMIN' | 'OPERATOR' | 'VENDOR' | 'VOLUNTEER';
         isActive: boolean;
         password?: string;
@@ -283,6 +292,7 @@ export default function UsersManagementPage() {
       } = {
         id: editingUser.id,
         name: editName.trim(),
+        phone: editPhone.trim() || null,
         role: editRole,
         isActive: editIsActive,
         assignedEventId: editEventId || null,
@@ -376,7 +386,8 @@ export default function UsersManagementPage() {
     pass?: string,
     eventTitle?: string,
     eventSlug?: string,
-    stationCode?: string
+    stationCode?: string,
+    phone?: string | null
   ) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eventt-nu.vercel.app';
     const evTitle = eventTitle || 'Conference';
@@ -395,7 +406,7 @@ export default function UsersManagementPage() {
 👤 Staff Name: ${name}
 🏛️ Assigned Conference: ${evTitle}
 🏷️ Assigned Role: ${roleLabel}
-${stationCode ? `🍽️ Assigned Counter: ${stationCode}\n` : ''}📧 Login Email / ID: ${email}
+${phone ? `📱 Mobile / WhatsApp: ${phone}\n` : ''}${stationCode ? `🍽️ Assigned Counter: ${stationCode}\n` : ''}📧 Login Email / ID: ${email}
 ${pass ? `🔑 Password: ${pass}\n` : ''}🌐 Staff Login Portal: ${loginUrl}
 ----------------------------------------
 Please keep these credentials confidential.`;
@@ -409,10 +420,11 @@ Please keep these credentials confidential.`;
     name: string,
     email: string,
     role: string,
-    pass: string,
+    pass?: string,
     eventTitle?: string,
     eventSlug?: string,
-    stationCode?: string
+    stationCode?: string,
+    phone?: string | null
   ) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eventt-nu.vercel.app';
     const evTitle = eventTitle || 'Conference';
@@ -434,14 +446,21 @@ Here are your official login credentials for the ${evTitle} staff portal:
 🏛️ *Conference:* ${evTitle}
 🏷️ *Role:* ${roleLabel}
 ${stationCode ? `🍽️ *Assigned Counter:* ${stationCode}\n` : ''}📧 *Email / Login ID:* ${email}
-🔑 *Password:* ${pass}
-
+${pass ? `🔑 *Password:* ${pass}\n` : ''}
 🌐 *Login Portal:*
 ${loginUrl}
 
 Please log in and ensure your device is ready. Contact the Organizing Committee for assistance.`;
 
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+    let cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+    if (cleanPhone.length === 10) {
+      cleanPhone = '91' + cleanPhone;
+    }
+    const waUrl = cleanPhone
+      ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
   // Filtered Users
@@ -784,6 +803,12 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: '2px' }}>
                               {u.email}
                             </div>
+                            {u.phone && (
+                              <div style={{ fontSize: '0.76rem', color: '#0d625e', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
+                                <span>📱</span>
+                                <span>{u.phone}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -913,6 +938,38 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                       {/* Actions */}
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          {/* Send WhatsApp details */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              shareCredentialsWhatsApp(
+                                u.name,
+                                u.email,
+                                u.role,
+                                undefined,
+                                u.assignedEvent?.title,
+                                u.assignedEvent?.slug,
+                                u.assignedStationCode || undefined,
+                                u.phone
+                              )
+                            }
+                            className="btn btn-sm"
+                            style={{
+                              padding: '5px 9px',
+                              fontSize: '0.78rem',
+                              background: '#25D366',
+                              color: '#ffffff',
+                              border: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontWeight: 700,
+                            }}
+                            title="Dispatch login portal details to staff WhatsApp"
+                          >
+                            <span>📱</span> WhatsApp
+                          </button>
+
                           {/* Copy credentials button */}
                           <button
                             type="button"
@@ -924,7 +981,8 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                                 undefined,
                                 u.assignedEvent?.title,
                                 u.assignedEvent?.slug,
-                                u.assignedStationCode || undefined
+                                u.assignedStationCode || undefined,
+                                u.phone
                               )
                             }
                             className="btn btn-secondary btn-sm"
@@ -1458,6 +1516,24 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                 </span>
               </div>
 
+              {/* Staff Mobile / WhatsApp Number */}
+              <div>
+                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-heading)' }}>
+                  📱 Mobile / WhatsApp Number (for sending credentials)
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g. 9876543210 or +919876543210"
+                  value={formPhone}
+                  onChange={(e) => setFormPhone(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%' }}
+                />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                  Login details and custom portal URL can be dispatched directly to this WhatsApp number.
+                </span>
+              </div>
+
               {/* Password with generator & show toggle */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -1612,6 +1688,15 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                   {createdCredentials.email}
                 </code>
               </div>
+              {createdCredentials.phone && (
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>WhatsApp Number:</span>
+                  <span style={{ fontWeight: 700, color: '#0d625e', fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span>📱</span>
+                    <span>{createdCredentials.phone}</span>
+                  </span>
+                </div>
+              )}
               <div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Password:</span>
                 <code style={{ fontSize: '1rem', fontWeight: 800, color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: '6px' }}>
@@ -1645,7 +1730,8 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                     createdCredentials.passwordPlain,
                     createdCredentials.eventTitle,
                     createdCredentials.eventSlug,
-                    createdCredentials.stationCode
+                    createdCredentials.stationCode,
+                    createdCredentials.phone
                   )
                 }
                 className="btn btn-secondary"
@@ -1663,7 +1749,8 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                     createdCredentials.passwordPlain,
                     createdCredentials.eventTitle,
                     createdCredentials.eventSlug,
-                    createdCredentials.stationCode
+                    createdCredentials.stationCode,
+                    createdCredentials.phone
                   )
                 }
                 className="btn"
@@ -2020,6 +2107,21 @@ Please log in and ensure your device is ready. Contact the Organizing Committee 
                   )}
                 </div>
               )}
+
+              {/* Mobile / WhatsApp Number */}
+              <div>
+                <label style={{ display: 'block', fontWeight: 700, fontSize: '0.85rem', marginBottom: '6px', color: 'var(--text-heading)' }}>
+                  📱 Staff Mobile / WhatsApp Number (Optional)
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g. 9876543210 or +919876543210"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="form-input"
+                  style={{ width: '100%' }}
+                />
+              </div>
 
               {/* Reset Password */}
               <div>

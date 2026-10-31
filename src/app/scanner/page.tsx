@@ -211,14 +211,6 @@ export default function ScannerPage() {
     } catch {}
   }, []);
 
-  // Quick preset test tokens
-  const sampleAttendees = [
-    { name: 'Sarah Connor (Clean 19 Available)', token: 'ec_tok_38a611a2997ae40cc0b0b47b60330c384f085175d5b5a3876e68e9ff2cb722f0' },
-    { name: 'Marcus Vance (Partially Redeemed)', token: 'ec_tok_242632ba2f0f3c6795b345cf704fa871adb9fab949acb1ae3798f78d5444c880' },
-    { name: 'Elena Rostova (Attended 5 items)', token: 'ec_tok_2a0961d9fa0a406aa134713d3c0b466ab811f113f3d795345634c5bfe3bbe534' },
-    { name: 'Devon Reed (VIP Unredeemed)', token: 'ec_tok_22fe00ec7b4362e9689cebdb8b308fccd28a2f048ea46f205cd67a9bf547846d' },
-  ];
-
   const handleLookup = useCallback(async (tokenToLookup?: string) => {
     const rawToken = (tokenToLookup || tokenInput).trim();
     if (!rawToken) {
@@ -1257,31 +1249,6 @@ export default function ScannerPage() {
               </button>
             )}
           </div>
-
-          {/* Quick presets for local testing (Hidden for Vendors in production) */}
-          {currentUserRole !== 'VENDOR' && (
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Quick Presets:
-              </span>
-              {sampleAttendees.map((sample, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    if (stationMode) {
-                      void handleStationRedeem(sample.token, selectedStationCode);
-                    } else {
-                      void handleLookup(sample.token);
-                    }
-                  }}
-                >
-                  {sample.name}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 

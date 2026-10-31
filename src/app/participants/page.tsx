@@ -635,12 +635,15 @@ Organizing Committee, ${confTitle}`;
           'Sessions',
         ]],
         body: allRows.map((p, idx) => {
-          let attendeeText = p.person.jobTitle ? `${p.person.name}\n${p.person.jobTitle}` : p.person.name;
+          let attendeeText = p.person.name;
+          if (p.person.jobTitle) {
+            attendeeText += `\n${p.person.jobTitle}`;
+          }
           if (p.accompanyingPersons && p.accompanyingPersons.length > 0) {
             const accList = p.accompanyingPersons
               .map((a) => `${a.name}${a.relation ? ` (${a.relation})` : ''}`)
               .join(', ');
-            attendeeText += `\n👥 Accompanying (${p.accompanyingPersons.length}): ${accList}`;
+            attendeeText += `\nAccompanying (${p.accompanyingPersons.length}): ${accList}`;
           }
 
           return [
@@ -676,7 +679,7 @@ Organizing Committee, ${confTitle}`;
         columnStyles: {
           0: { cellWidth: 28, halign: 'center', textColor: [100, 116, 139] },
           1: { cellWidth: 85, fontStyle: 'bold', textColor: [13, 98, 94] },
-          2: { cellWidth: 165, fontStyle: 'bold', textColor: [15, 23, 42] },
+          2: { cellWidth: 165, textColor: [15, 23, 42] },
           3: { cellWidth: 160, textColor: [51, 65, 85] },
           4: { cellWidth: 165, textColor: [71, 85, 105], fontSize: 7.5 },
           5: { cellWidth: 70, halign: 'center', fontStyle: 'bold' },
@@ -751,31 +754,33 @@ Organizing Committee, ${confTitle}`;
         </div>
 
         <div className="header-actions-group">
+          {/* Export options available to Admin and Desk Operator */}
+          <a
+            href="/api/registrations/export"
+            download
+            className="btn btn-secondary"
+            title="Download CSV report of attendees & redemption counts"
+          >
+            <span>📊</span> Export CSV
+          </a>
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={exportingPdf}
+            className="btn btn-secondary"
+            title="Download attendee directory as high-quality PDF report (without action buttons)"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontWeight: 600,
+            }}
+          >
+            <span>📄</span> {exportingPdf ? 'Exporting PDF...' : 'Export PDF'}
+          </button>
+
           {currentUserRole !== 'OPERATOR' && (
             <>
-              <a
-                href="/api/registrations/export"
-                download
-                className="btn btn-secondary"
-                title="Download CSV report of attendees & redemption counts"
-              >
-                <span>📊</span> Export CSV
-              </a>
-              <button
-                type="button"
-                onClick={handleExportPdf}
-                disabled={exportingPdf}
-                className="btn btn-secondary"
-                title="Download attendee directory as high-quality PDF report (without action buttons)"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontWeight: 600,
-                }}
-              >
-                <span>📄</span> {exportingPdf ? 'Exporting PDF...' : 'Export PDF'}
-              </button>
               <button
                 onClick={() => {
                   setShowImportModal(true);
