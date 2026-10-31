@@ -247,16 +247,18 @@ export default function ParticipantsPage() {
     const displayName = `Dr. ${cleanName}`;
     const categoryText = (p.person.jobTitle || 'Delegate').toUpperCase();
 
+    const confTitle = p.event?.title || 'Conference';
+    const confVenue = p.event?.venue || '';
+
     const text = `Dear ${displayName},
 
-Greetings from JASICON 2026! 🏥✨
+Greetings from ${confTitle}! 🏥✨
 Here are your official conference registration and digital badge details:
 
 📋 Delegate: ${displayName}
 🎫 Ticket Code: ${p.ticketCode}
-🏛️ Conference: 25th Annual State Conference of JASICON 2026
-📍 Venue: Deoghar, Jharkhand
-✅ Status: CONFIRMED
+🏛️ Conference: ${confTitle}
+${confVenue ? `📍 Venue: ${confVenue}\n` : ''}✅ Status: CONFIRMED
 
 📱 View & Download your Digital Badge & QR Code online:
 ${badgeUrl}
@@ -264,7 +266,7 @@ ${badgeUrl}
 Please present your QR code at the registration desk for quick check-in and access to conference meals & academic sessions.
 
 Warm regards,
-Organizing Committee, JASICON 2026`;
+Organizing Committee, ${confTitle}`;
 
     window.open(`https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };

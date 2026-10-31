@@ -138,9 +138,28 @@ export async function POST(request: Request) {
     let skippedCount = 0;
     const errors: string[] = [];
 
-    // Retrieve highest current ticket number to maintain sequence
-    const currentCount = await prisma.eventRegistration.count({ where: { eventId } });
-    let nextTicketNumber = currentCount + 1;
+    // Retrieve highest current ticket number to maintain sequence without collisions
+    const prefix = (eventRecord as any)?.ticketPrefix || 'CONF-2026';
+    const existingWithPrefix = await prisma.eventRegistration.findMany({
+      where: {
+        ticketCode: { startsWith: `${prefix}-` },
+      },
+      select: { ticketCode: true },
+    });
+
+    let maxNum = 0;
+    const prefixEscaped = prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`^${prefixEscaped}-(\\d+)$`);
+    for (const reg of existingWithPrefix) {
+      const match = reg.ticketCode.match(regex);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+    let nextTicketNumber = maxNum + 1;
 
     for (let i = 0; i < parseResult.participants.length; i++) {
       const row = parseResult.participants[i];
@@ -180,8 +199,6 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const prefix = (eventRecord as any)?.ticketPrefix || 'EC-2026';
-        const ticketCode = `${prefix}-${String(nextTicketNumber++).padStart(4, '0')}`;
         const { tokenHash } = generateSecureQrToken();
 
         const stationsList =
@@ -189,24 +206,49 @@ export async function POST(request: Request) {
             ? (eventRecord as any).stations
             : ALL_ENTITLEMENT_DEFINITIONS;
 
-        await prisma.eventRegistration.create({
-          data: {
-            personId: person.id,
-            eventId,
-            ticketCode,
-            qrTokenHash: tokenHash,
-            status: 'CONFIRMED',
-            entitlements: {
-              create: stationsList.map((def: any) => ({
-                code: def.code,
-                title: def.label || def.title,
-                category: def.category || (def.code.includes('MEAL') ? 'MEAL' : 'SESSION'),
-                status: 'AVAILABLE' as const,
-                version: 0,
-              })),
-            },
-          },
-        });
+        let createdReg = null;
+        let attempts = 0;
+        while (attempts < 10) {
+          const candidateCode = `${prefix}-${String(nextTicketNumber).padStart(4, '0')}`;
+          try {
+            createdReg = await prisma.eventRegistration.create({
+              data: {
+                personId: person.id,
+                eventId,
+                ticketCode: candidateCode,
+                qrTokenHash: tokenHash,
+                status: 'CONFIRMED',
+                entitlements: {
+                  create: stationsList.map((def: any) => ({
+                    code: def.code,
+                    title: def.label || def.title,
+                    category: def.category || (def.code.includes('MEAL') ? 'MEAL' : 'SESSION'),
+                    status: 'AVAILABLE' as const,
+                    version: 0,
+                  })),
+                },
+              },
+            });
+            nextTicketNumber++;
+            break;
+          } catch (err: any) {
+            const isUniqueError = err?.code === 'P2002';
+            const isTicketCode = isUniqueError && (
+              err?.meta?.target?.includes?.('ticketCode') ||
+              String(err?.message || '').includes('ticketCode')
+            );
+            if (isTicketCode) {
+              nextTicketNumber++;
+              attempts++;
+              continue;
+            }
+            throw err;
+          }
+        }
+
+        if (!createdReg) {
+          throw new Error('Failed to allocate unique ticket code');
+        }
 
         importedCount++;
       } catch (err: unknown) {

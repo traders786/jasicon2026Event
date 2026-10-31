@@ -60,7 +60,8 @@ export default function RegisterPage() {
       .then((data) => {
         if (data.events && data.events.length > 0) {
           setEvents(data.events);
-          setSelectedEventId(data.events[0].id);
+          const active = data.events.find((e: any) => e.isCurrentActive) || data.events[0];
+          setSelectedEventId(active.id);
         }
       })
       .catch((err) => console.error('Failed to load events:', err));
@@ -272,14 +273,14 @@ export default function RegisterPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <span className="badge badge-available">● On-Spot Counter</span>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-            JASICON 2026 Registration Desk
+            {selectedEvent?.title ? `${selectedEvent.title} Registration Desk` : 'Conference Registration Desk'}
           </span>
         </div>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-heading)' }}>
           On-Spot Attendee Registration
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
-          Register delegate on spot, snap their official badge photo, provision all 19 entitlements, and issue their digital &amp; physical badge.
+          Register delegate on spot, snap their official badge photo, provision all entitlements, and issue their digital &amp; physical badge.
         </p>
       </div>
 
@@ -743,8 +744,8 @@ export default function RegisterPage() {
               status="CONFIRMED"
               category={category}
               event={{
-                title: selectedEvent?.title || 'JASICON 2026',
-                venue: selectedEvent?.venue || 'Deoghar, Jharkhand',
+                title: selectedEvent?.title || 'Conference Event',
+                venue: selectedEvent?.venue || '',
                 logoUrl: selectedEvent?.logoUrl || null,
               }}
               person={{

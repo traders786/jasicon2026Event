@@ -99,7 +99,7 @@ export default async function BadgeViewPage({ params }: BadgePageProps) {
             Official Conference Badge
           </h1>
           <p style={{ fontSize: '0.82rem', color: 'var(--primary)', fontWeight: 700, marginTop: '4px' }}>
-            JASICON 2026 • ASI JHARKHAND
+            {registration.event.title}{registration.event.venue ? ` • ${registration.event.venue}` : ''}
           </p>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
             Present this digital badge &amp; QR code at the desk for check-in &amp; meals.

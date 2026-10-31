@@ -19,6 +19,7 @@ export function CreateEventModal({ isOpen, onClose, onCreated }: CreateEventModa
   const [startDate, setStartDate] = useState('2026-11-15T09:00');
   const [endDate, setEndDate] = useState('2026-11-17T18:00');
   const [prefix, setPrefix] = useState('CONF-2026');
+  const [prefixEdited, setPrefixEdited] = useState(false);
   const [primaryColor, setPrimaryColor] = useState('#0d625e');
   const [accentColor, setAccentColor] = useState('#10b981');
   const [logoUrl, setLogoUrl] = useState('');
@@ -29,6 +30,19 @@ export function CreateEventModal({ isOpen, onClose, onCreated }: CreateEventModa
     setMounted(true);
   }, []);
 
+  const derivePrefix = (val: string) => {
+    const cleaned = val.trim().replace(/[^a-zA-Z0-9\s]/g, '');
+    const parts = cleaned.split(/\s+/).filter(Boolean);
+    let code = 'CONF';
+    if (parts.length === 1) {
+      code = parts[0].slice(0, 4).toUpperCase();
+    } else if (parts.length > 1) {
+      code = parts.map((p) => p[0]).join('').slice(0, 4).toUpperCase();
+    }
+    const currentYear = new Date().getFullYear();
+    return `${code}-${currentYear}`;
+  };
+
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -37,7 +51,8 @@ export function CreateEventModal({ isOpen, onClose, onCreated }: CreateEventModa
       setOrganizer('');
       setVenue('');
       setCity('');
-      setPrefix('CONF-2026');
+      setPrefix(`CONF-${new Date().getFullYear()}`);
+      setPrefixEdited(false);
       setPrimaryColor('#0d625e');
       setAccentColor('#10b981');
       setLogoUrl('');
@@ -234,7 +249,13 @@ export function CreateEventModal({ isOpen, onClose, onCreated }: CreateEventModa
               autoFocus
               placeholder="e.g. DOSCON 2026, NEOCON 2027, APICON 2026"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                const newTitle = e.target.value;
+                setTitle(newTitle);
+                if (!prefixEdited && newTitle.trim().length > 1) {
+                  setPrefix(derivePrefix(newTitle));
+                }
+              }}
               className="form-control"
               style={{ width: '100%', fontSize: '0.95rem', fontWeight: 600 }}
             />
@@ -342,7 +363,10 @@ export function CreateEventModal({ isOpen, onClose, onCreated }: CreateEventModa
                 required
                 placeholder="e.g. DOS-2026, NEO-2027"
                 value={prefix}
-                onChange={(e) => setPrefix(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setPrefix(e.target.value.toUpperCase());
+                  setPrefixEdited(true);
+                }}
                 className="form-control"
                 style={{ width: '100%', fontFamily: 'monospace', fontWeight: 700 }}
               />

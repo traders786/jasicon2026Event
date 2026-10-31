@@ -183,63 +183,114 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Generate sequential ticket code with conference prefix without collision
-    const prefix = eventCtx?.event?.ticketPrefix || 'JC-2026';
-    const latestReg = await prisma.eventRegistration.findFirst({
+    // 3. Retrieve actual target conference event to access its specific ticketPrefix and stations
+    const targetEvent = await prisma.event.findUnique({
+      where: { id: targetEventId },
+    });
+
+    if (!targetEvent) {
+      return NextResponse.json({ error: 'Target conference not found' }, { status: 404 });
+    }
+
+    const prefix = targetEvent.ticketPrefix || eventCtx?.event?.ticketPrefix || 'CONF-2026';
+
+    // Query all existing ticket codes starting with this prefix across the entire table
+    // (ticketCode has a global unique constraint across all registrations)
+    const existingWithPrefix = await prisma.eventRegistration.findMany({
       where: {
-        eventId: targetEventId,
         ticketCode: { startsWith: `${prefix}-` },
       },
-      orderBy: { ticketCode: 'desc' },
       select: { ticketCode: true },
     });
-    let nextNum = 1;
-    if (latestReg?.ticketCode) {
-      const match = latestReg.ticketCode.match(new RegExp(`${prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}-(\\d+)`));
+
+    let maxNum = 0;
+    const prefixEscaped = prefix.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`^${prefixEscaped}-(\\d+)$`);
+    for (const reg of existingWithPrefix) {
+      const match = reg.ticketCode.match(regex);
       if (match) {
-        nextNum = parseInt(match[1], 10) + 1;
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
       }
     }
-    const ticketCode = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+    let nextNum = maxNum + 1;
 
     // 4. Generate Zero-PII QR token
     const { plainToken, tokenHash } = generateSecureQrToken();
 
-    // 5. Create registration and event entitlements in transaction
-    const stationsToUse = (eventCtx?.event?.stations && eventCtx.event.stations.length > 0)
-      ? eventCtx.event.stations.map((s) => ({
+    // 5. Determine stations to provision
+    const stationsToUse = (Array.isArray(targetEvent.stations) && targetEvent.stations.length > 0)
+      ? (targetEvent.stations as any[]).map((s: any) => ({
           category: s.category === 'SESSION' ? ('SESSION' as const) : ('MEAL' as const),
           code: s.code,
-          title: s.label,
+          title: s.label || s.title || s.code,
         }))
-      : ALL_ENTITLEMENT_DEFINITIONS;
+      : (eventCtx?.event?.stations && eventCtx.event.stations.length > 0)
+        ? eventCtx.event.stations.map((s) => ({
+            category: s.category === 'SESSION' ? ('SESSION' as const) : ('MEAL' as const),
+            code: s.code,
+            title: s.label,
+          }))
+        : ALL_ENTITLEMENT_DEFINITIONS;
 
-    const registration = await prisma.$transaction(async (tx) => {
-      const reg = await tx.eventRegistration.create({
-        data: {
-          personId: person.id,
-          eventId: targetEventId,
-          ticketCode,
-          qrTokenHash: tokenHash,
-          status: 'CONFIRMED',
-        },
-      });
+    // 6. Create registration and event entitlements in transaction with collision-retry
+    let registration: any = null;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 10;
 
-      const entitlementsData = stationsToUse.map((def) => ({
-        registrationId: reg.id,
-        category: def.category,
-        code: def.code,
-        title: def.title,
-        status: 'AVAILABLE' as const,
-        version: 0,
-      }));
+    while (attempts < MAX_ATTEMPTS) {
+      const ticketCode = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+      try {
+        registration = await prisma.$transaction(async (tx) => {
+          const reg = await tx.eventRegistration.create({
+            data: {
+              personId: person.id,
+              eventId: targetEventId,
+              ticketCode,
+              qrTokenHash: tokenHash,
+              status: 'CONFIRMED',
+            },
+          });
 
-      await tx.entitlement.createMany({
-        data: entitlementsData,
-      });
+          const entitlementsData = stationsToUse.map((def) => ({
+            registrationId: reg.id,
+            category: def.category,
+            code: def.code,
+            title: def.title,
+            status: 'AVAILABLE' as const,
+            version: 0,
+          }));
 
-      return reg;
-    });
+          await tx.entitlement.createMany({
+            data: entitlementsData,
+          });
+
+          return reg;
+        });
+        break; // Successfully registered!
+      } catch (err: any) {
+        const isUniqueError = err?.code === 'P2002';
+        const isTicketCode = isUniqueError && (
+          err?.meta?.target?.includes?.('ticketCode') ||
+          String(err?.message || '').includes('ticketCode')
+        );
+        if (isTicketCode) {
+          nextNum++;
+          attempts++;
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!registration) {
+      return NextResponse.json(
+        { error: 'Failed to assign a unique ticket code after multiple attempts. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     // Generate QR image data URL for instant badge rendering
     const qrDataUrl = await renderQrCodeDataUrl(plainToken);

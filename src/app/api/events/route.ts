@@ -107,6 +107,15 @@ export async function POST(request: Request) {
 
     const defaultCategories = ['DELEGATE', 'PG STUDENT', 'FACULTY'];
 
+    let finalPrefix = (parsed.data.ticketPrefix || 'CONF-2026').trim().toUpperCase();
+    const existingWithSamePrefix = await prisma.event.findFirst({
+      where: { ticketPrefix: finalPrefix },
+    });
+    if (existingWithSamePrefix) {
+      const randSuffix = Math.floor(10 + Math.random() * 90);
+      finalPrefix = `${finalPrefix}-${randSuffix}`;
+    }
+
     const event = await prisma.event.create({
       data: {
         title: parsed.data.title,
@@ -119,7 +128,7 @@ export async function POST(request: Request) {
         description: parsed.data.description,
         startDate: new Date(parsed.data.startDate),
         endDate: new Date(parsed.data.endDate),
-        ticketPrefix: parsed.data.ticketPrefix || 'EC-2026',
+        ticketPrefix: finalPrefix,
         primaryColor: parsed.data.primaryColor || '#0d625e',
         accentColor: parsed.data.accentColor || '#10b981',
         logoUrl: parsed.data.logoUrl || null,

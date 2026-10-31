@@ -85,7 +85,7 @@ export default function BackendDetailsPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <span className="badge badge-available">● Backend &amp; Architecture</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              JASICON 2026 Engine
+              Evently Multi-Conference Platform
             </span>
           </div>
           <h1 className="dashboard-banner-title">
