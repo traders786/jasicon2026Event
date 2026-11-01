@@ -162,7 +162,12 @@ export async function PATCH(
 
     if (body.firstName !== undefined) personUpdates.firstName = String(body.firstName).trim();
     if (body.lastName !== undefined) personUpdates.lastName = String(body.lastName).trim();
-    if (body.email !== undefined) personUpdates.email = String(body.email).toLowerCase().trim();
+    if (body.email !== undefined) {
+      const trimmedEmail = String(body.email).toLowerCase().trim();
+      if (trimmedEmail && trimmedEmail !== 'na' && trimmedEmail.includes('@') && !trimmedEmail.endsWith('@attendee.eventcheck.local')) {
+        personUpdates.email = trimmedEmail;
+      }
+    }
     if (body.phone !== undefined) personUpdates.phone = body.phone ? String(body.phone).trim() : null;
     if (body.company !== undefined) personUpdates.company = body.company ? String(body.company).trim() : null;
     if (body.jobTitle !== undefined) personUpdates.jobTitle = body.jobTitle ? String(body.jobTitle).trim() : null;

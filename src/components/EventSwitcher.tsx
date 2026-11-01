@@ -186,8 +186,10 @@ export function EventSwitcher({ isSuperAdmin, activeEventTitle, activeEventCity 
           style={{
             position: 'absolute',
             top: 'calc(100% + 8px)',
-            left: 0,
+            right: 0,
+            left: 'auto',
             width: '320px',
+            maxWidth: 'min(320px, calc(100vw - 20px))',
             background: '#ffffff',
             borderRadius: '16px',
             border: '1.5px solid rgba(13, 98, 94, 0.18)',

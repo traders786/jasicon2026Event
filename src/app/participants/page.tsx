@@ -89,6 +89,13 @@ interface PaginationMeta {
   totalPages: number;
 }
 
+function formatDisplayEmail(email?: string | null): string {
+  if (!email || email.toLowerCase() === 'na' || email.toLowerCase().endsWith('@attendee.eventcheck.local')) {
+    return 'NA';
+  }
+  return email;
+}
+
 export default function ParticipantsPage() {
   const [participants, setParticipants] = useState<ParticipantItem[]>([]);
   const [searchInput, setSearchInput] = useState('');
@@ -646,12 +653,17 @@ Organizing Committee, ${confTitle}`;
             attendeeText += `\nAccompanying (${p.accompanyingPersons.length}): ${accList}`;
           }
 
+          const displayEmail = formatDisplayEmail(p.person.email);
+          const contactInfo = p.person.phone
+            ? (displayEmail === 'NA' ? p.person.phone : `${displayEmail}\n${p.person.phone}`)
+            : displayEmail;
+
           return [
             (idx + 1).toString(),
             p.ticketCode,
             attendeeText,
             p.person.company || '—',
-            p.person.phone ? `${p.person.email}\n${p.person.phone}` : p.person.email,
+            contactInfo,
             p.status === 'CHECKED_IN' ? 'CHECKED-IN' : 'CONFIRMED',
             `${p.entitlementsSummary.mealsRedeemed} / ${p.entitlementsSummary.mealsTotal}`,
             `${p.entitlementsSummary.sessionsRedeemed} / ${p.entitlementsSummary.sessionsTotal}`,
@@ -740,6 +752,10 @@ Organizing Committee, ${confTitle}`;
     setImportText(sample);
   };
 
+  const totalEntitlementsCount = participants[0]
+    ? (participants[0].entitlementsSummary.mealsTotal + participants[0].entitlementsSummary.sessionsTotal)
+    : null;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header */}
@@ -749,7 +765,7 @@ Organizing Committee, ${confTitle}`;
             Event Participants
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>
-            Manage registered attendees, track individual check-in status, and monitor 19-entitlement utilization.
+            Manage registered attendees, track individual check-in status, and monitor {totalEntitlementsCount ? `${totalEntitlementsCount}-entitlement` : 'entitlement'} utilization.
           </p>
         </div>
 
@@ -1196,9 +1212,22 @@ Organizing Committee, ${confTitle}`;
                         </div>
                       </td>
                       <td>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 500 }}>{p.person.email}</div>
+                        {(() => {
+                          const displayEmail = formatDisplayEmail(p.person.email);
+                          return (
+                            <div style={{ fontSize: '0.85rem', color: displayEmail === 'NA' ? 'var(--text-muted)' : 'var(--text-main)', fontWeight: displayEmail === 'NA' ? 600 : 500 }}>
+                              {displayEmail === 'NA' ? (
+                                <span style={{ background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0', padding: '1px 6px', borderRadius: '4px', fontSize: '0.74rem', fontWeight: 700 }}>
+                                  NA
+                                </span>
+                              ) : (
+                                displayEmail
+                              )}
+                            </div>
+                          );
+                        })()}
                         {p.person.phone && (
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>{p.person.phone}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginTop: '2px' }}>{p.person.phone}</div>
                         )}
                       </td>
                       <td>
@@ -1390,44 +1419,47 @@ Organizing Committee, ${confTitle}`;
 
                 {/* Page Pill Buttons */}
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                    // Window centered around current page
-                    let pageNum = i + 1;
-                    if (pagination.totalPages > 5) {
-                      if (page > 3) {
-                        pageNum = page - 2 + i;
-                        if (pageNum > pagination.totalPages) {
-                          pageNum = pagination.totalPages - 4 + i;
-                        }
-                      }
+                  {(() => {
+                    const maxPills = 5;
+                    const total = pagination.totalPages;
+                    let start = Math.max(1, page - Math.floor(maxPills / 2));
+                    let end = Math.min(total, start + maxPills - 1);
+                    if (end - start + 1 < maxPills) {
+                      start = Math.max(1, end - maxPills + 1);
                     }
-                    const isCurrent = pageNum === page;
-                    return (
-                      <button
-                        key={pageNum}
-                        type="button"
-                        onClick={() => setPage(pageNum)}
-                        style={{
-                          minWidth: '32px',
-                          height: '32px',
-                          padding: '0 6px',
-                          borderRadius: '8px',
-                          border: isCurrent ? '1px solid var(--primary)' : '1px solid var(--border-color)',
-                          background: isCurrent ? 'var(--primary)' : 'white',
-                          color: isCurrent ? 'white' : 'var(--text-main)',
-                          fontWeight: isCurrent ? 800 : 600,
-                          fontSize: '0.82rem',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
+                    const pills: number[] = [];
+                    for (let p = start; p <= end; p++) {
+                      pills.push(p);
+                    }
+                    return pills.map((pageNum) => {
+                      const isCurrent = pageNum === page;
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setPage(pageNum)}
+                          style={{
+                            minWidth: '32px',
+                            height: '32px',
+                            padding: '0 6px',
+                            borderRadius: '8px',
+                            border: isCurrent ? '1px solid var(--primary)' : '1px solid var(--border-color)',
+                            background: isCurrent ? 'var(--primary)' : 'white',
+                            color: isCurrent ? 'white' : 'var(--text-main)',
+                            fontWeight: isCurrent ? 800 : 600,
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
 
                 <button
@@ -1757,6 +1789,7 @@ Organizing Committee, ${confTitle}`;
                       <tr>
                         <th>#</th>
                         <th>Attendee Name</th>
+                        <th>Email</th>
                         <th>Phone</th>
                         <th>Category / District</th>
                         <th>Status</th>
@@ -1767,6 +1800,15 @@ Organizing Committee, ${confTitle}`;
                         <tr key={row.rowNumber}>
                           <td>{row.registrationNo || row.rowNumber}</td>
                           <td style={{ fontWeight: 600, color: '#fff' }}>{row.fullName}</td>
+                          <td>
+                            {formatDisplayEmail(row.email) === 'NA' ? (
+                              <span style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>
+                                NA
+                              </span>
+                            ) : (
+                              formatDisplayEmail(row.email)
+                            )}
+                          </td>
                           <td>{row.phone || '—'}</td>
                           <td>{row.jobTitle || row.company || '—'}</td>
                           <td>

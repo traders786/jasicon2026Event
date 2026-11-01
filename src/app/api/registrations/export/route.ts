@@ -75,11 +75,15 @@ export async function GET(request: Request) {
       const accCount = accList.length;
       const accNames = accList.map((a: any) => `${a.name}${a.relation ? ` (${a.relation})` : ''}`).join('; ');
 
+      const displayEmail = (!r.person.email || r.person.email.toLowerCase().endsWith('@attendee.eventcheck.local') || r.person.email.toLowerCase() === 'na')
+        ? 'NA'
+        : r.person.email;
+
       return [
         r.ticketCode,
         r.person.firstName,
         r.person.lastName,
-        r.person.email,
+        displayEmail,
         r.person.phone || '',
         r.person.company || '',
         r.person.jobTitle || '',

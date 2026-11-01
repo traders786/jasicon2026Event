@@ -72,6 +72,14 @@ interface ParticipantProfileViewProps {
   onDelete?: (deletedId: string) => void;
 }
 
+// Helper to format email and display NA for placeholder or missing emails
+function formatDisplayEmail(email?: string | null): string {
+  if (!email || email.toLowerCase() === 'na' || email.toLowerCase().endsWith('@attendee.eventcheck.local')) {
+    return 'NA';
+  }
+  return email;
+}
+
 export function ParticipantProfileView({
   participantId,
   initialData,
@@ -133,7 +141,8 @@ export function ParticipantProfileView({
       setData(json.registration);
       setEditFirstName(json.registration.person.firstName || '');
       setEditLastName(json.registration.person.lastName || '');
-      setEditEmail(json.registration.person.email || '');
+      const rawEmail = json.registration.person.email || '';
+      setEditEmail(rawEmail.toLowerCase().endsWith('@attendee.eventcheck.local') || rawEmail.toLowerCase() === 'na' ? '' : rawEmail);
       setEditPhone(json.registration.person.phone || '');
       setEditCompany(json.registration.person.company || '');
       setEditJobTitle(json.registration.person.jobTitle || '');
@@ -151,7 +160,8 @@ export function ParticipantProfileView({
     } else {
       setEditFirstName(initialData.person.firstName || '');
       setEditLastName(initialData.person.lastName || '');
-      setEditEmail(initialData.person.email || '');
+      const rawEmail = initialData.person.email || '';
+      setEditEmail(rawEmail.toLowerCase().endsWith('@attendee.eventcheck.local') || rawEmail.toLowerCase() === 'na' ? '' : rawEmail);
       setEditPhone(initialData.person.phone || '');
       setEditCompany(initialData.person.company || '');
       setEditJobTitle(initialData.person.jobTitle || '');
@@ -503,7 +513,7 @@ Organizing Committee, ${confTitle}`;
             </div>
 
             <div className="profile-contact-line">
-              <span>✉️ {data.person.email}</span>
+              <span>✉️ {formatDisplayEmail(data.person.email)}</span>
               {data.person.phone && <span> • 📞 {data.person.phone}</span>}
             </div>
 
@@ -610,7 +620,7 @@ Organizing Committee, ${confTitle}`;
             onClick={() => setActiveTab('entitlements')}
             className={`profile-tab-btn ${activeTab === 'entitlements' ? 'active' : ''}`}
           >
-            🍽️ Entitlements ({data.stats.mealsRedeemed + data.stats.sessionsRedeemed} / 19)
+            🍽️ Entitlements ({data.stats.mealsRedeemed + data.stats.sessionsRedeemed} / {data.entitlements.length})
           </button>
           <button
             onClick={() => setActiveTab('logs')}
@@ -823,15 +833,17 @@ Organizing Committee, ${confTitle}`;
                   </div>
 
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Email Address</label>
+                    <label className="form-label">Email Address (Optional)</label>
                     <input
                       type="email"
                       className="form-input"
                       value={editEmail}
                       onChange={(e) => setEditEmail(e.target.value)}
-                      required
-                      placeholder="attendee@example.com"
+                      placeholder="Leave blank for NA"
                     />
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px', display: 'block' }}>
+                      Leave empty if attendee does not have an email (will display as NA).
+                    </span>
                   </div>
 
                   <div className="form-group" style={{ marginBottom: 0 }}>
@@ -914,7 +926,7 @@ Organizing Committee, ${confTitle}`;
 
                   <div className="profile-detail-cell">
                     <span className="profile-detail-label">Email Address</span>
-                    <span className="profile-detail-val">{data.person.email}</span>
+                    <span className="profile-detail-val">{formatDisplayEmail(data.person.email)}</span>
                   </div>
 
                   <div className="profile-detail-cell">

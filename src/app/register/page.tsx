@@ -443,8 +443,7 @@ export default function RegisterPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
-                  capture="user"
+                  accept="image/png,image/jpeg,image/webp,image/jpg"
                   onChange={handleFileUpload}
                   style={{ display: 'none' }}
                 />
