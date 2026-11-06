@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { renderQrCodeDataUrl } from '@/lib/qr';
-import { ParticipantBadge } from '@/components/ParticipantBadge';
+import { JASICONBadgeTemplate } from '@/components/jasicon-badge/JASICONBadgeTemplate';
+import { JASICON_BRAND } from '@/components/jasicon-badge/badgeConstants';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const instant = false;
 
@@ -28,8 +30,8 @@ export async function generateMetadata({ params }: BadgePageProps): Promise<Meta
 
   const name = `${registration.person.firstName} ${registration.person.lastName}`.trim();
   const category = (registration.person.jobTitle || 'DELEGATE').toUpperCase();
-  const title = `🏥 Dr. ${name} (${category}) - Official Badge`;
-  const description = `Ticket: ${registration.ticketCode} • Category: ${category} • 25th Annual Conference of ASI, Deoghar, Jharkhand`;
+  const title = `🏥 Dr. ${name} (${category}) - Official JASICON 2026 Badge`;
+  const description = `Ticket: ${registration.ticketCode} • Category: ${category} • 25th Annual Conference of ASI Jharkhand Chapter, Deoghar`;
 
   return {
     title,
@@ -37,7 +39,7 @@ export async function generateMetadata({ params }: BadgePageProps): Promise<Meta
     openGraph: {
       title,
       description,
-      images: ['/evently-logo.jpg'],
+      images: [JASICON_BRAND.logos.centerMain],
     },
   };
 }
@@ -63,76 +65,124 @@ export default async function BadgeViewPage({ params }: BadgePageProps) {
     notFound();
   }
 
-  const qrDataUrl = await renderQrCodeDataUrl(
-    `EC_TICKET:${registration.ticketCode}:${registration.id}`
+  // 1. Generate unique Front Event Access QR code (tied to Evently check-in system)
+  const eventQrPayload = `EC_TICKET:${registration.ticketCode}:${registration.id}`;
+  const eventQrDataUrl = await renderQrCodeDataUrl(eventQrPayload);
+
+  // 2. Generate common Back Scientific Programme QR code (fixed identical URL)
+  const scientificProgrammeQrDataUrl = await renderQrCodeDataUrl(
+    JASICON_BRAND.scientificProgrammeUrl
   );
 
+  const fullName = `${registration.person.firstName} ${registration.person.lastName}`.trim();
+  const category = (registration.person.jobTitle || 'DELEGATE').toUpperCase();
+
+  const attendeeData = {
+    attendeeId: registration.person.id,
+    ticketCode: registration.ticketCode,
+    fullName,
+    category,
+    photoUrl: registration.person.photoUrl,
+    institution: registration.person.company,
+    email: registration.person.email,
+    phone: registration.person.phone,
+    qrPayload: eventQrPayload,
+    eventTitle: registration.event.title,
+    venue: registration.event.venue,
+  };
+
   return (
-    <div style={{ minHeight: '100vh', padding: '1.5rem 1rem', background: '#f0fdf9' }}>
-      <div style={{ maxWidth: '440px', margin: '0 auto' }}>
-        {/* Attendee Welcome Header */}
-        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }} className="no-print">
-          <div
+    <div style={{ minHeight: '100vh', padding: '2rem 1rem', background: '#F8FAF9' }}>
+      {/* Top Banner Navigation */}
+      <div
+        className="no-print"
+        style={{
+          maxWidth: '860px',
+          margin: '0 auto 1.5rem auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <Link
+          href="/participants"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '0.85rem',
+            color: '#0B4333',
+            fontWeight: 700,
+            textDecoration: 'none',
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back to Attendee Directory
+        </Link>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '56px',
-              height: '56px',
-              borderRadius: '16px',
-              background: '#ffffff',
-              boxShadow: '0 4px 14px rgba(13, 98, 94, 0.12)',
-              border: '1px solid #dce7e4',
-              marginBottom: '0.75rem',
-              overflow: 'hidden',
-              padding: '4px',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              background: '#E6F4EA',
+              color: '#137333',
+              border: '1px solid #CEEAD6',
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/evently-logo.jpg"
-              alt="Logo"
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
-          </div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-heading)', margin: 0 }}>
-            Official Conference Badge
-          </h1>
-          <p style={{ fontSize: '0.82rem', color: 'var(--primary)', fontWeight: 700, marginTop: '4px' }}>
-            {registration.event.title}{registration.event.venue ? ` • ${registration.event.venue}` : ''}
-          </p>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Present this digital badge &amp; QR code at the desk for check-in &amp; meals.
-          </p>
+            ● {registration.status}
+          </span>
+          <span
+            style={{
+              padding: '4px 10px',
+              borderRadius: '20px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              background: '#FEF7E0',
+              color: '#B06000',
+              border: '1px solid #FEEFC3',
+            }}
+          >
+            {registration.ticketCode}
+          </span>
         </div>
+      </div>
 
-        {/* Badge Component */}
-        <ParticipantBadge
-          registrationId={registration.id}
-          ticketCode={registration.ticketCode}
-          status={registration.status}
-          person={{
-            name: `${registration.person.firstName} ${registration.person.lastName}`.trim(),
-            email: registration.person.email,
-            company: registration.person.company,
-            jobTitle: registration.person.jobTitle,
-            photoUrl: registration.person.photoUrl,
-          }}
-          event={{
-            title: registration.event.title,
-            venue: registration.event.venue,
-            startDate: registration.event.startDate,
-            endDate: registration.event.endDate,
-            logoUrl: registration.event.logoUrl,
-          }}
-          qrDataUrl={qrDataUrl}
-          category={registration.person.jobTitle || 'DELEGATE'}
-        />
+      {/* Main Master Badge Template */}
+      <JASICONBadgeTemplate
+        attendee={attendeeData}
+        eventQrDataUrl={eventQrDataUrl}
+        scientificProgrammeQrDataUrl={scientificProgrammeQrDataUrl}
+        showLanyardSlots={true}
+        initialSide="both"
+        allowDownload={true}
+      />
 
-        {/* Footer info */}
-        <div style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }} className="no-print">
-          <div>25th Annual State Conference of ASI Jharkhand</div>
-          <div>Need assistance? Visit the Conference Helpdesk at the venue.</div>
+      {/* Bottom Footer Details */}
+      <div
+        className="no-print"
+        style={{
+          textAlign: 'center',
+          marginTop: '2.5rem',
+          fontSize: '0.8rem',
+          color: '#64748B',
+          lineHeight: 1.5,
+        }}
+      >
+        <div style={{ fontWeight: 700, color: '#0B4333' }}>
+          25th Annual State Conference of ASI Jharkhand Chapter (JASICON 2026)
+        </div>
+        <div>
+          Official Physical Card Dimensions: 105 mm × 148 mm (A6 Portrait) • 300 DPI Production Standard
+        </div>
+        <div style={{ marginTop: '4px' }}>
+          Need assistance? Visit the Conference Registration Desk at Deoghar, Jharkhand.
         </div>
       </div>
     </div>

@@ -37,7 +37,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState('');
-  const [category, setCategory] = useState<'DELEGATE' | 'FACULTY' | 'PG STUDENT'>('DELEGATE');
+  const [category, setCategory] = useState<'DELEGATE' | 'FACULTY' | 'PG STUDENT' | 'PG DELEGATE'>('DELEGATE');
 
   // Accompanying Person(s) state
   const [hasAccompanying, setHasAccompanying] = useState<boolean>(false);
@@ -249,7 +249,7 @@ export default function RegisterPage() {
           eventId: selectedEventId,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          email: email.trim().toLowerCase(),
+          email: email.trim() ? email.trim().toLowerCase() : undefined,
           phone: formattedPhone,
           company: company.trim() || undefined,
           jobTitle: category,
@@ -497,14 +497,13 @@ export default function RegisterPage() {
           {/* Email & Phone */}
           <div className="form-grid-2" style={{ marginBottom: '1.25rem' }}>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: 700 }}>Email Address *</label>
+              <label className="form-label" style={{ fontWeight: 700 }}>Email Address (Optional)</label>
               <input
                 type="email"
                 className="form-input"
                 placeholder="doctor@hospital.org"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
               />
             </div>
             <div className="form-group">
@@ -553,12 +552,13 @@ export default function RegisterPage() {
               <select
                 className="form-select"
                 value={category}
-                onChange={(e) => setCategory(e.target.value as 'DELEGATE' | 'FACULTY' | 'PG STUDENT')}
+                onChange={(e) => setCategory(e.target.value as 'DELEGATE' | 'FACULTY' | 'PG STUDENT' | 'PG DELEGATE')}
                 required
               >
                 <option value="DELEGATE">DELEGATE</option>
                 <option value="FACULTY">FACULTY</option>
                 <option value="PG STUDENT">PG STUDENT</option>
+                <option value="PG DELEGATE">PG DELEGATE</option>
               </select>
             </div>
             <div className="form-group">
@@ -909,7 +909,7 @@ export default function RegisterPage() {
               registrationId={createdBadge.registration.id}
               ticketCode={createdBadge.registration.ticketCode}
               status="CONFIRMED"
-              category={category}
+              category={createdBadge.registration.person.jobTitle || 'DELEGATE'}
               event={{
                 title: selectedEvent?.title || 'Conference Event',
                 venue: selectedEvent?.venue || '',
@@ -920,7 +920,7 @@ export default function RegisterPage() {
                 email: createdBadge.registration.person.email,
                 phone: createdBadge.registration.person.phone,
                 company: createdBadge.registration.person.company,
-                jobTitle: category,
+                jobTitle: createdBadge.registration.person.jobTitle || 'DELEGATE',
                 photoUrl: createdBadge.registration.person.photoUrl,
               }}
               qrDataUrl={createdBadge.qrDataUrl}

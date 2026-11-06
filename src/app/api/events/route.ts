@@ -105,7 +105,7 @@ export async function POST(request: Request) {
       { code: 'KIT_DISTRIBUTION', label: 'Delegate Conference Kit Distribution', category: 'KIT', icon: '🎒' },
     ];
 
-    const defaultCategories = ['DELEGATE', 'PG STUDENT', 'FACULTY'];
+    const defaultCategories = ['DELEGATE', 'PG DELEGATE', 'PG STUDENT', 'FACULTY'];
 
     let finalPrefix = (parsed.data.ticketPrefix || 'CONF-2026').trim().toUpperCase();
     const existingWithSamePrefix = await prisma.event.findFirst({

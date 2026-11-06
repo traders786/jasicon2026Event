@@ -49,7 +49,7 @@ const DEFAULT_STATIONS = [
   { code: 'SES_08_WORKSHOP_B', label: 'Session 08: Distributed Consensus Workshop', category: 'SESSION', icon: '🔬' },
 ];
 
-const DEFAULT_CATEGORIES = ['DELEGATE', 'PG STUDENT', 'FACULTY'];
+const DEFAULT_CATEGORIES = ['DELEGATE', 'PG DELEGATE', 'PG STUDENT', 'FACULTY'];
 
 function mapEventToBranding(raw: any): EventBranding {
   return {

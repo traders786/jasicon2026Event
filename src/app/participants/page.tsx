@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { ParticipantProfileView } from '@/components/ParticipantProfileView';
+import { generateInstantRegistrationBadgePdf } from '@/lib/badge-pdf-generator';
 
 interface ParticipantItem {
   id: string;
@@ -125,6 +126,19 @@ export default function ParticipantsPage() {
 
   // PDF Export state
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [isDownloadingInstantBadge, setIsDownloadingInstantBadge] = useState(false);
+
+  const handleDownloadInstantBadge = async () => {
+    try {
+      setIsDownloadingInstantBadge(true);
+      await generateInstantRegistrationBadgePdf();
+    } catch (err) {
+      console.error('Failed to generate instant registration badge:', err);
+      alert('Failed to generate instant registration badge PDF. Please try again.');
+    } finally {
+      setIsDownloadingInstantBadge(false);
+    }
+  };
 
   // Fetch current user role once
   useEffect(() => {
@@ -829,6 +843,22 @@ Organizing Committee, ${confTitle}`;
                   <span>⚡</span> Reconcile ({placeholderCount})
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={handleDownloadInstantBadge}
+                disabled={isDownloadingInstantBadge}
+                className="btn btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                }}
+                title="Download ready-to-print blank badge template (A6 Front & Back) for on-spot marker registration"
+              >
+                <span>📝</span> {isDownloadingInstantBadge ? 'Generating...' : 'On-Spot / Blank Badge PDF'}
+              </button>
             </>
           )}
 

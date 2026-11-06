@@ -9,7 +9,7 @@ const RegisterSchema = z.object({
   eventId: z.string().uuid(),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Valid email is required'),
+  email: z.string().email('Valid email is required').optional().or(z.literal('')),
   phone: z.string().optional(),
   company: z.string().optional(),
   jobTitle: z.string().optional(),
@@ -154,27 +154,75 @@ export async function POST(request: Request) {
 
     const { eventId, firstName, lastName, email, phone, company, jobTitle, photoUrl, accompanyingPersons } = parsed.data;
 
-    // 1. Find or create Person
-    const person = await prisma.person.upsert({
-      where: { email: email.toLowerCase().trim() },
-      update: {
-        firstName,
-        lastName,
-        phone,
-        company,
-        jobTitle,
-        ...(photoUrl ? { photoUrl } : {}),
-      },
-      create: {
-        firstName,
-        lastName,
-        email: email.toLowerCase().trim(),
-        phone,
-        company,
-        jobTitle,
-        photoUrl: photoUrl || null,
-      },
-    });
+    // 1. Determine effective email and find or create Person
+    const trimmedEmail = email?.trim().toLowerCase();
+    const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
+    const hasValidEmail = Boolean(trimmedEmail && trimmedEmail.length > 0);
+
+    let person;
+    if (hasValidEmail && trimmedEmail) {
+      person = await prisma.person.upsert({
+        where: { email: trimmedEmail },
+        update: {
+          firstName,
+          lastName,
+          phone,
+          company,
+          jobTitle,
+          ...(photoUrl ? { photoUrl } : {}),
+        },
+        create: {
+          firstName,
+          lastName,
+          email: trimmedEmail,
+          phone,
+          company,
+          jobTitle,
+          photoUrl: photoUrl || null,
+        },
+      });
+    } else {
+      // No email provided: check if person already exists by matching phone number
+      const existingPersonByPhone = phone && cleanPhone.length >= 10
+        ? await prisma.person.findFirst({
+            where: {
+              OR: [
+                { phone: phone },
+                { phone: `+91${cleanPhone}` },
+                { phone: cleanPhone },
+              ],
+            },
+          })
+        : null;
+
+      if (existingPersonByPhone) {
+        person = await prisma.person.update({
+          where: { id: existingPersonByPhone.id },
+          data: {
+            firstName,
+            lastName,
+            company: company || existingPersonByPhone.company,
+            jobTitle: jobTitle || existingPersonByPhone.jobTitle,
+            ...(photoUrl ? { photoUrl } : {}),
+          },
+        });
+      } else {
+        // Generate a collision-free placeholder email following standard codebase convention
+        const fallbackId = cleanPhone || Math.random().toString(36).substring(2, 9);
+        const fallbackEmail = `${fallbackId}.${Date.now().toString(36)}@attendee.eventcheck.local`;
+        person = await prisma.person.create({
+          data: {
+            firstName,
+            lastName,
+            email: fallbackEmail,
+            phone,
+            company,
+            jobTitle,
+            photoUrl: photoUrl || null,
+          },
+        });
+      }
+    }
 
     const eventCtx = await getEventContext();
     const targetEventId = eventCtx?.isSuperAdmin

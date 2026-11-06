@@ -94,7 +94,7 @@ export default function EventsManagementPage() {
     setEditPrefix(ev.ticketPrefix || 'CONF-2026');
     setEditColor(ev.primaryColor || '#0d625e');
     setEditAccent(ev.accentColor || '#10b981');
-    setEditCategories(Array.isArray(ev.categories) ? ev.categories : ['DELEGATE', 'PG STUDENT', 'FACULTY']);
+    setEditCategories(Array.isArray(ev.categories) ? ev.categories : ['DELEGATE', 'PG DELEGATE', 'PG STUDENT', 'FACULTY']);
     setEditWhatsapp(ev.whatsappTemplate || '');
     setEditLogoUrl(ev.logoUrl || '');
 
