@@ -168,15 +168,28 @@ export async function renderBadgeFrontToCanvas(
   ctx.stroke();
   ctx.restore();
 
-  // 3. Attendee Full Name (Centered at y = 1060)
-  // Generous 64-pixel clearance below photo and 98-pixel clearance above category pill (Zero overlap)
+  // 3. Attendee Full Name (Centered optically between photo at y = 996 and pill at y = 1158)
+  // Dynamic preview-aligned proportional tiering with strict safety bounds
   const displayName = formatAttendeeDisplayName(attendee.fullName).toUpperCase();
   ctx.save();
   ctx.fillStyle = '#0F2C23';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
 
-  let fontSize = sx(46);
+  // Proportional font sizing matching on-screen preview (1.28rem -> 58px on 1240 base)
+  const nameLen = displayName.length;
+  let baseSize = 58;
+  if (nameLen > 28) {
+    baseSize = 40;
+  } else if (nameLen > 22) {
+    baseSize = 46;
+  } else if (nameLen > 16) {
+    baseSize = 52;
+  } else {
+    baseSize = 58;
+  }
+
+  let fontSize = sx(baseSize);
   ctx.font = `800 ${fontSize}px "Times New Roman", Times, Georgia, serif`;
   const maxNameWidth = sx(1050);
   const measuredWidth = ctx.measureText(displayName).width;
@@ -187,7 +200,7 @@ export async function renderBadgeFrontToCanvas(
   const nMetrics = ctx.measureText(displayName);
   const nAscent = nMetrics.actualBoundingBoxAscent || (fontSize * 0.72);
   const nDescent = nMetrics.actualBoundingBoxDescent || (fontSize * 0.1);
-  const nameY = sy(1060) + (nAscent - nDescent) / 2;
+  const nameY = sy(1074) + (nAscent - nDescent) / 2;
   ctx.fillText(displayName, sx(620), nameY);
   ctx.restore();
 
