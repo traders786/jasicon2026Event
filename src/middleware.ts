@@ -98,6 +98,6 @@ export const config = {
      * - static assets: favicon.ico, icon.svg, evently-logo.jpg, uploads/
      * - api/ (let API routes return appropriate JSON errors)
      */
-    '/((?!_next/static|_next/image|favicon.ico|icon.svg|evently-logo.jpg|jasicon-logo.svg|uploads/|api/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icon.svg|evently-logo.jpg|jasicon-logo.svg|branding/|uploads/|api/).*)',
   ],
 };
