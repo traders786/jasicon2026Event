@@ -33,10 +33,10 @@ export function BadgeBack({
         aspectRatio: '105 / 148',
       }}
     >
-      {/* 1. MASTER AUTHENTIC BACK ARTWORK (Sharp 90-degree Rectangle, Smooth Parchment Gradient) */}
+      {/* 1. MASTER AUTHENTIC BACK ARTWORK (Sharp 90-degree Rectangle, Covered Punchholes, Smooth Parchment Gradient) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/branding/master-back-template.png?v=12"
+        src="/branding/master-back-template.png?v=13"
         alt="JASICON 2026 Master Back Artwork"
         style={{
           width: '100%',

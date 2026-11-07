@@ -86,9 +86,22 @@ function drawImageCover(
 }
 
 /**
- * Pure Canvas 2D Badge Front Renderer (300 DPI Native, 1240 × 1748 px)
+ * Ultra-High-Resolution 800 DPI Geometry Constants (A6 Portrait: 105 mm × 148 mm)
+ * 105 mm at 800 DPI = 3307 px | 148 mm at 800 DPI = 4661 px
+ * Master Artwork Base: 1240 × 1748 px (Scale: 2.6669× X, 2.6665× Y)
+ */
+const TARGET_800_W = 3307;
+const TARGET_800_H = 4661;
+const SCALE_X = TARGET_800_W / 1240.0;
+const SCALE_Y = TARGET_800_H / 1748.0;
+
+const sx = (val: number): number => Math.round(val * SCALE_X);
+const sy = (val: number): number => Math.round(val * SCALE_Y);
+
+/**
+ * Pure Canvas 2D Badge Front Renderer (800 DPI Ultra-High Resolution, 3307 × 4661 px)
  * Completely eliminates html2canvas flexbox/baseline misalignment bugs.
- * Renders mathematical subpixel-centered typography, category pill, QR, and photo/initials.
+ * Renders mathematical subpixel-centered typography, optical cap-height centering, QR, and photo/initials.
  */
 export async function renderBadgeFrontToCanvas(
   attendee: BadgeAttendeeData,
@@ -96,21 +109,25 @@ export async function renderBadgeFrontToCanvas(
   frontElement?: HTMLElement
 ): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
-  canvas.width = 1240;
-  canvas.height = 1748;
+  canvas.width = TARGET_800_W;
+  canvas.height = TARGET_800_H;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to obtain canvas 2D rendering context');
 
-  // 1. Load Master Background Artwork (A6 Portrait 300 DPI, Sharp 90-degree Corners)
-  const masterBase = await loadCanvasImage('/branding/master-front-card.png?v=12');
-  ctx.drawImage(masterBase, 0, 0, 1240, 1748);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
-  // 2. Photo / Initials Frame (top: 39.02%, left: 32.25%, width: 35.50%, height: 19.22%)
-  const frameX = 400; // 32.25% of 1240 = 399.9
-  const frameY = 682; // 39.02% of 1748 = 682.0
-  const frameW = 440; // 35.50% of 1240 = 440.2
-  const frameH = 336; // 19.22% of 1748 = 335.9
-  const frameRadius = 36;
+  // 1. Load Master Background Artwork (800 DPI, Sharp 90-degree Corners, Punchholes covered)
+  const masterBase = await loadCanvasImage('/branding/master-front-card.png?v=13');
+  ctx.drawImage(masterBase, 0, 0, TARGET_800_W, TARGET_800_H);
+
+  // 2. Photo / Initials Frame (top: 37.76%, left: 32.25%, width: 35.50%, height: 19.22%)
+  // Generous vertical breathing room: ends at y = 996 (leaving 103px clearance before category pill)
+  const frameX = sx(400);
+  const frameY = sy(660);
+  const frameW = sx(440);
+  const frameH = sy(336);
+  const frameRadius = sx(36);
 
   let photoRendered = false;
   if (hasValidPhoto(attendee.photoUrl)) {
@@ -136,7 +153,7 @@ export async function renderBadgeFrontToCanvas(
 
     const initials = generateInitials(attendee.fullName);
     ctx.fillStyle = '#064B38';
-    ctx.font = '800 100px "Times New Roman", Times, Georgia, serif';
+    ctx.font = `800 ${sx(96)}px "Times New Roman", Times, Georgia, serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(initials, frameX + frameW / 2, frameY + frameH / 2);
@@ -146,38 +163,41 @@ export async function renderBadgeFrontToCanvas(
   // Stroke crisp gold border around photo/initials frame
   ctx.save();
   ctx.strokeStyle = '#C5A059';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = Math.max(3, Math.round(4 * SCALE_X));
   drawRoundedRect(ctx, frameX, frameY, frameW, frameH, frameRadius);
   ctx.stroke();
   ctx.restore();
 
-  // 3. Attendee Full Name (Centered at y = 1070)
-  // Generous 70-pixel ivory breathing space between name and category pill
+  // 3. Attendee Full Name (Centered at y = 1060)
+  // Generous 64-pixel clearance below photo and 98-pixel clearance above category pill (Zero overlap)
   const displayName = formatAttendeeDisplayName(attendee.fullName).toUpperCase();
   ctx.save();
   ctx.fillStyle = '#0F2C23';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.textBaseline = 'alphabetic';
 
-  // Base font size is 44px; scale down dynamically if name is especially long
-  let fontSize = 44;
+  let fontSize = sx(46);
   ctx.font = `800 ${fontSize}px "Times New Roman", Times, Georgia, serif`;
-  const maxNameWidth = 1050;
+  const maxNameWidth = sx(1050);
   const measuredWidth = ctx.measureText(displayName).width;
   if (measuredWidth > maxNameWidth) {
     fontSize = Math.floor(fontSize * (maxNameWidth / measuredWidth));
     ctx.font = `800 ${fontSize}px "Times New Roman", Times, Georgia, serif`;
   }
-  ctx.fillText(displayName, 620, 1070);
+  const nMetrics = ctx.measureText(displayName);
+  const nAscent = nMetrics.actualBoundingBoxAscent || (fontSize * 0.72);
+  const nDescent = nMetrics.actualBoundingBoxDescent || (fontSize * 0.1);
+  const nameY = sy(1060) + (nAscent - nDescent) / 2;
+  ctx.fillText(displayName, sx(620), nameY);
   ctx.restore();
 
   // 4. Dynamic Category Pill (top: 66.25%, height: 4.4%, width: 44%)
   // Bounds: x: 347..893, y: 1158..1235 (height = 77px)
-  const pillW = 546;
-  const pillH = 77;
-  const pillX = 620 - pillW / 2; // 347
-  const pillY = 1158;
-  const pillRadius = 38;
+  const pillW = sx(546);
+  const pillH = sy(77);
+  const pillX = sx(347);
+  const pillY = sy(1158);
+  const pillRadius = sx(38);
 
   ctx.save();
   ctx.fillStyle = '#064B38';
@@ -185,20 +205,25 @@ export async function renderBadgeFrontToCanvas(
   ctx.fill();
 
   ctx.strokeStyle = '#C5A059';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = Math.max(3, Math.round(4 * SCALE_X));
   drawRoundedRect(ctx, pillX, pillY, pillW, pillH, pillRadius);
   ctx.stroke();
 
-  // Category Text: Perfectly centered at y = 1196.5
+  // Category Text: Perfectly centered with optical cap-height calculation
   const categoryUpper = (attendee.category || 'DELEGATE').toUpperCase();
+  const catFontSize = sx(32);
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '800 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  ctx.font = `800 ${catFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(categoryUpper, 620, pillY + pillH / 2);
+  ctx.textBaseline = 'alphabetic';
+  const cMetrics = ctx.measureText(categoryUpper);
+  const cAscent = cMetrics.actualBoundingBoxAscent || (catFontSize * 0.72);
+  const cDescent = cMetrics.actualBoundingBoxDescent || (catFontSize * 0.08);
+  const opticalCatY = pillY + pillH / 2 + (cAscent - cDescent) / 2;
+  ctx.fillText(categoryUpper, pillX + pillW / 2, opticalCatY);
   ctx.restore();
 
-  // 5. Event Access QR Code (slot: x: 236..579, y: 1267..1573)
+  // 5. Event Access QR Code (slot: x: 247, y: 1290, 286 × 286 px)
   let effectiveQr = qrDataUrl;
   if (!effectiveQr && frontElement) {
     const qrImgEl = frontElement.querySelector<HTMLImageElement>('img[alt*="Event Access QR"], img[src^="data:image"]');
@@ -210,36 +235,37 @@ export async function renderBadgeFrontToCanvas(
   if (effectiveQr) {
     try {
       const qrImg = await loadCanvasImage(effectiveQr);
-      // Dead-center in gold box x: 201..580 (center 390.5), y: 1267..1599 (center 1433)
-      const qrSize = 286;
-      const qrX = 247; // 46px left, 47px right margin
-      const qrY = 1290; // 23px top, 23px bottom margin
+      const qrSize = sx(286);
+      const qrX = sx(247);
+      const qrY = sy(1290);
       ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
     } catch (err) {
       console.warn('Canvas badge renderer: Failed to draw QR image:', err);
     }
   }
 
-  // 6. Dynamic Ticket Code Text inside Ticket Box (top: 82.38%, left: 53.55%, width: 25.65%, height: 3.80%)
-  // Bounds: x: 664..982, y: 1440..1506
-  const ticketPillX = 664;
-  const ticketPillY = 1440;
-  const ticketPillW = 318;
-  const ticketPillH = 66;
+  // 6. Dynamic Ticket Code Text inside Ticket Box (Dead-Centered at X = 830.5, Y = 1475.0)
+  const tCenterX = sx(830.5);
+  const tCenterY = sy(1475.0);
+  const tFontSize = sx(28);
 
   ctx.save();
   ctx.fillStyle = '#18231E';
-  ctx.font = '800 28px Consolas, Monaco, "Courier New", monospace';
+  ctx.font = `800 ${tFontSize}px Consolas, Monaco, "Courier New", monospace`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(attendee.ticketCode, ticketPillX + ticketPillW / 2, ticketPillY + ticketPillH / 2);
+  ctx.textBaseline = 'alphabetic';
+  const tMetrics = ctx.measureText(attendee.ticketCode);
+  const tAscent = tMetrics.actualBoundingBoxAscent || (tFontSize * 0.7);
+  const tDescent = tMetrics.actualBoundingBoxDescent || (tFontSize * 0.08);
+  const opticalTicketY = tCenterY + (tAscent - tDescent) / 2;
+  ctx.fillText(attendee.ticketCode, tCenterX, opticalTicketY);
   ctx.restore();
 
   return canvas;
 }
 
 /**
- * Pure Canvas 2D Badge Back Renderer (300 DPI Native, 1240 × 1748 px)
+ * Pure Canvas 2D Badge Back Renderer (800 DPI Ultra-High Resolution, 3307 × 4661 px)
  * Renders master back template with scientific programme QR code.
  */
 export async function renderBadgeBackToCanvas(
@@ -247,14 +273,17 @@ export async function renderBadgeBackToCanvas(
   backElement?: HTMLElement
 ): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
-  canvas.width = 1240;
-  canvas.height = 1748;
+  canvas.width = TARGET_800_W;
+  canvas.height = TARGET_800_H;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to obtain canvas 2D rendering context');
 
-  // 1. Draw Master Back Template Artwork
-  const backBase = await loadCanvasImage('/branding/master-back-template.png?v=12');
-  ctx.drawImage(backBase, 0, 0, 1240, 1748);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  // 1. Draw Master Back Template Artwork (800 DPI, Punchholes covered)
+  const backBase = await loadCanvasImage('/branding/master-back-template.png?v=13');
+  ctx.drawImage(backBase, 0, 0, TARGET_800_W, TARGET_800_H);
 
   // 2. Scientific Programme QR Code (slot: x: 391..839, y: 885..1265)
   let effectiveQr = scientificProgrammeQr;
@@ -268,10 +297,10 @@ export async function renderBadgeBackToCanvas(
   if (effectiveQr) {
     try {
       const qrImg = await loadCanvasImage(effectiveQr);
-      // Clean square QR inside single unified white slot, mathematically centered with generous white padding
-      const qrSize = 280;
-      const qrX = 475; // Center X = 615 (slot x: 391..839, margin = 84px on left and right)
-      const qrY = 935; // Center Y = 1075 (slot y: 885..1265, margin = 50px on top and bottom)
+      // Clean square QR inside single unified white slot, mathematically centered
+      const qrSize = sx(280);
+      const qrX = sx(475); // Center X = 615
+      const qrY = sy(935); // Center Y = 1075
       ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
     } catch (err) {
       console.warn('Canvas badge renderer: Failed to draw back QR image:', err);
@@ -382,27 +411,30 @@ export async function generateBulkBadgesPdf(
 }
 
 /**
- * Standalone Instant / On-Spot Registration Front Renderer (300 DPI Native, 1240 × 1748 px)
+ * Standalone Instant / On-Spot Registration Front Renderer (800 DPI Ultra-High Resolution, 3307 × 4661 px)
  * Renders authentic JASICON 2026 artwork with a clean, elegant writing area for marker handwriting
  * ('Dr. _____' and a blank second line, no category pill), dummy event access QR code, and ticket code placeholder.
  */
 export async function renderInstantRegistrationFrontToCanvas(): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas');
-  canvas.width = 1240;
-  canvas.height = 1748;
+  canvas.width = TARGET_800_W;
+  canvas.height = TARGET_800_H;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to obtain canvas 2D rendering context');
 
-  // 1. Load Master Background Artwork (A6 Portrait 300 DPI, Sharp 90-degree Corners)
-  const masterBase = await loadCanvasImage('/branding/master-front-card.png?v=12');
-  ctx.drawImage(masterBase, 0, 0, 1240, 1748);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  // 1. Load Master Background Artwork (800 DPI, Punchholes covered)
+  const masterBase = await loadCanvasImage('/branding/master-front-card.png?v=13');
+  ctx.drawImage(masterBase, 0, 0, TARGET_800_W, TARGET_800_H);
 
   // 2. Open Elegant Marker Handwriting Panel (spacious ivory card with delicate gold border)
-  const boxX = 180;
-  const boxY = 700;
-  const boxW = 880;
-  const boxH = 460;
-  const boxRadius = 24;
+  const boxX = sx(180);
+  const boxY = sy(700);
+  const boxW = sx(880);
+  const boxH = sy(460);
+  const boxRadius = sx(24);
 
   ctx.save();
   ctx.fillStyle = '#FAF8F3';
@@ -410,30 +442,31 @@ export async function renderInstantRegistrationFrontToCanvas(): Promise<HTMLCanv
   ctx.fill();
 
   ctx.strokeStyle = '#C5A059';
-  ctx.lineWidth = 3;
+  ctx.lineWidth = Math.max(3, Math.round(3 * SCALE_X));
   drawRoundedRect(ctx, boxX, boxY, boxW, boxH, boxRadius);
   ctx.stroke();
 
   // Line 1: 'Dr.' and a long blank underline
+  const drFontSize = sx(44);
   ctx.fillStyle = '#0F2C23';
-  ctx.font = '800 44px "Times New Roman", Times, Georgia, serif';
+  ctx.font = `800 ${drFontSize}px "Times New Roman", Times, Georgia, serif`;
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  const line1Y = boxY + 140;
-  ctx.fillText('Dr.', boxX + 45, line1Y);
+  ctx.textBaseline = 'alphabetic';
+  const line1Y = boxY + sy(140);
+  ctx.fillText('Dr.', boxX + sx(45), line1Y);
 
   ctx.strokeStyle = '#C5A059';
-  ctx.lineWidth = 3;
+  ctx.lineWidth = Math.max(2, Math.round(3 * SCALE_X));
   ctx.beginPath();
-  ctx.moveTo(boxX + 130, line1Y + 15);
-  ctx.lineTo(boxX + boxW - 45, line1Y + 15);
+  ctx.moveTo(boxX + sx(130), line1Y + sy(15));
+  ctx.lineTo(boxX + boxW - sx(45), line1Y + sy(15));
   ctx.stroke();
 
   // Line 2: Clean blank underline (no text label)
-  const line2Y = boxY + 310;
+  const line2Y = boxY + sy(310);
   ctx.beginPath();
-  ctx.moveTo(boxX + 45, line2Y + 15);
-  ctx.lineTo(boxX + boxW - 45, line2Y + 15);
+  ctx.moveTo(boxX + sx(45), line2Y + sy(15));
+  ctx.lineTo(boxX + boxW - sx(45), line2Y + sy(15));
   ctx.stroke();
   ctx.restore();
 
@@ -442,31 +475,31 @@ export async function renderInstantRegistrationFrontToCanvas(): Promise<HTMLCanv
     const dummyQrDataUrl = await QRCode.toDataURL(JASICON_BRAND.websiteUrl, {
       errorCorrectionLevel: 'H',
       margin: 1,
-      width: 320,
+      width: 480,
       color: { dark: '#0F2C23', light: '#FFFFFF' },
     });
     const qrImg = await loadCanvasImage(dummyQrDataUrl);
-    ctx.drawImage(qrImg, 247, 1290, 286, 286);
+    ctx.drawImage(qrImg, sx(247), sy(1290), sx(286), sx(286));
   } catch (err) {
     console.warn('Failed to generate dummy QR, falling back to static programme QR:', err);
     try {
       const fallbackQr = await loadCanvasImage('/branding/scientific-programme-qr.png');
-      ctx.drawImage(fallbackQr, 247, 1290, 286, 286);
+      ctx.drawImage(fallbackQr, sx(247), sy(1290), sx(286), sx(286));
     } catch {}
   }
 
   // 4. Ticket Code Box (top: 82.38%, left: 53.55%, width: 25.65%, height: 3.80%)
-  const ticketPillX = 664;
-  const ticketPillY = 1440;
-  const ticketPillW = 318;
-  const ticketPillH = 66;
-
+  const tFontSize = sx(28);
   ctx.save();
   ctx.fillStyle = '#18231E';
-  ctx.font = '800 28px Consolas, Monaco, "Courier New", monospace';
+  ctx.font = `800 ${tFontSize}px Consolas, Monaco, "Courier New", monospace`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('JC-2026-SPOT', ticketPillX + ticketPillW / 2, ticketPillY + ticketPillH / 2);
+  ctx.textBaseline = 'alphabetic';
+  const tMetrics = ctx.measureText('JC-2026-SPOT');
+  const tAscent = tMetrics.actualBoundingBoxAscent || (tFontSize * 0.7);
+  const tDescent = tMetrics.actualBoundingBoxDescent || (tFontSize * 0.08);
+  const opticalTicketY = sy(1475.0) + (tAscent - tDescent) / 2;
+  ctx.fillText('JC-2026-SPOT', sx(830.5), opticalTicketY);
   ctx.restore();
 
   return canvas;

@@ -49,9 +49,9 @@ export const JASICON_BRAND = {
     // Screen preview dimensions (scaled for comfortable viewing)
     previewWidthPx: 397, // ~105mm at 96 DPI
     previewHeightPx: 560, // ~148mm at 96 DPI
-    // High-res print target at 300 DPI
-    printWidthPx: 1240,
-    printHeightPx: 1748,
+    // Ultra-high-resolution print target at 800 DPI
+    printWidthPx: 3307,
+    printHeightPx: 4661,
   },
 
   // Logos (Fixed positions, no CSS redraws or proportions distortion)

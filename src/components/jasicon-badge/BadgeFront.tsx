@@ -43,10 +43,10 @@ export function BadgeFront({
         aspectRatio: '105 / 148',
       }}
     >
-      {/* 1. MASTER AUTHENTIC FRONT CARD BASE (Sharp 90-degree Rectangle, Authentic Replaced Logos, Continuous Gold Wave) */}
+      {/* 1. MASTER AUTHENTIC FRONT CARD BASE (Sharp 90-degree Rectangle, Covered Punchholes, Continuous Gold Wave) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/branding/master-front-card.png?v=12"
+        src="/branding/master-front-card.png?v=13"
         alt="JASICON 2026 Master Front Card Artwork"
         style={{
           width: '100%',
@@ -56,11 +56,11 @@ export function BadgeFront({
         }}
       />
 
-      {/* 2. DYNAMIC ATTENDEE PHOTO / INITIALS FRAME (Unified Component, Generous Ivory Breathing Space) */}
+      {/* 2. DYNAMIC ATTENDEE PHOTO / INITIALS FRAME (top: 37.76%, left: 32.25%, width: 35.50%, height: 19.22%) */}
       <div
         style={{
           position: 'absolute',
-          top: '39.02%',
+          top: '37.76%',
           left: '32.25%',
           width: '35.50%',
           height: '19.22%',
@@ -116,14 +116,14 @@ export function BadgeFront({
         )}
       </div>
 
-      {/* 3. DYNAMIC ATTENDEE NAME (Uppercase Bold Serif Typography) */}
+      {/* 3. DYNAMIC ATTENDEE NAME (Generous Clearance Above Pill, Zero Overlap) */}
       <div
         style={{
           position: 'absolute',
-          top: '60.50%',
+          top: '59.20%',
           left: '4%',
           right: '4%',
-          height: '4.50%',
+          height: '5.50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -151,7 +151,7 @@ export function BadgeFront({
         </h2>
       </div>
 
-      {/* 4. DYNAMIC ATTENDEE CATEGORY PILL (Continuous Forest Green, No Seams/Gaps) */}
+      {/* 4. DYNAMIC ATTENDEE CATEGORY PILL (Optically Centered Text) */}
       <div
         style={{
           position: 'absolute',
@@ -170,7 +170,7 @@ export function BadgeFront({
           zIndex: 10,
           pointerEvents: 'none',
           boxSizing: 'border-box',
-          padding: '0 8px',
+          padding: '0 8px 1px 8px',
         }}
       >
         <span
@@ -222,14 +222,14 @@ export function BadgeFront({
         </div>
       )}
 
-      {/* 6. DYNAMIC TICKET CODE PILL TEXT */}
+      {/* 6. DYNAMIC TICKET CODE PILL TEXT (Mathematically Centered at X = 66.98%, Y = 84.38%) */}
       <div
         style={{
           position: 'absolute',
-          top: '82.38%',
-          left: '53.55%',
-          width: '25.65%',
-          height: '3.80%',
+          top: '82.40%',
+          left: '53.39%',
+          width: '27.18%',
+          height: '3.95%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

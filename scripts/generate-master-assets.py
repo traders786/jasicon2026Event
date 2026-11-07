@@ -45,6 +45,31 @@ for y in range(H_raw - 35, H_raw):
 
 # Scale up to 1240 x 1748
 f_scaled = f_raw.resize((TARGET_W, TARGET_H), Image.Resampling.LANCZOS)
+
+# COVER TOP PUNCHHOLES WITH SOLID HEADER GRADIENT (Zero white lanyard slots)
+f_arr = np.array(f_scaled)
+for y in range(0, 165):
+    # Left hole wipe: x in [130..365]
+    c_l = f_arr[y, 100].astype(float)
+    c_r = f_arr[y, 450].astype(float)
+    for x in range(125, 370):
+        t = (x - 125) / float(370 - 125)
+        f_arr[y, x] = ((1.0 - t) * c_l + t * c_r).astype(np.uint8)
+
+    # Right hole wipe: x in [925..1130]
+    c_l = f_arr[y, 880].astype(float)
+    c_r = f_arr[y, 1150].astype(float)
+    for x in range(920, 1135):
+        t = (x - 920) / float(1135 - 920)
+        f_arr[y, x] = ((1.0 - t) * c_l + t * c_r).astype(np.uint8)
+
+# Square the top 20 rows completely so no light border pixels remain
+for y in range(0, 25):
+    for x in range(0, TARGET_W):
+        if f_arr[y, x, 0] > 40 or f_arr[y, x, 1] > 70 or f_arr[y, x, 2] > 45:
+            f_arr[y, x] = f_arr[26, x]
+
+f_scaled = Image.fromarray(f_arr)
 f_draw = ImageDraw.Draw(f_scaled)
 
 sx = TARGET_W / float(W_raw)
@@ -133,6 +158,23 @@ for y in range(H_raw - 35, H_raw):
             b_raw.putpixel((x, y), deep_green)
 
 b_scaled = b_raw.resize((TARGET_W, TARGET_H), Image.Resampling.LANCZOS)
+
+# COVER TOP PUNCHHOLES ON BACK CARD (Parchment background)
+b_arr = np.array(b_scaled)
+for y in range(0, 180):
+    c_l = b_arr[y, 100].astype(float)
+    c_r = b_arr[y, 450].astype(float)
+    for x in range(125, 400):
+        t = (x - 125) / float(400 - 125)
+        b_arr[y, x] = ((1.0 - t) * c_l + t * c_r).astype(np.uint8)
+
+    c_l = b_arr[y, 820].astype(float)
+    c_r = b_arr[y, 1150].astype(float)
+    for x in range(830, 1110):
+        t = (x - 830) / float(1110 - 830)
+        b_arr[y, x] = ((1.0 - t) * c_l + t * c_r).astype(np.uint8)
+
+b_scaled = Image.fromarray(b_arr)
 b_draw = ImageDraw.Draw(b_scaled)
 
 # BACK CENTER LOGO:
