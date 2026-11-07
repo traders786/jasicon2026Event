@@ -159,29 +159,29 @@ for y in range(H_raw - 35, H_raw):
 
 b_scaled = b_raw.resize((TARGET_W, TARGET_H), Image.Resampling.LANCZOS)
 
-# COVER TOP PUNCHHOLES ON BACK CARD (Parchment background)
+# COVER TOP PUNCHHOLES ON BACK CARD (Parchment background, y: 0..100)
 b_arr = np.array(b_scaled)
-for y in range(0, 180):
-    c_l = b_arr[y, 100].astype(float)
-    c_r = b_arr[y, 450].astype(float)
-    for x in range(125, 400):
-        t = (x - 125) / float(400 - 125)
+for y in range(0, 100):
+    c_l = b_arr[y, 80].astype(float)
+    c_r = b_arr[y, 380].astype(float)
+    for x in range(125, 350):
+        t = (x - 125) / float(350 - 125)
         b_arr[y, x] = ((1.0 - t) * c_l + t * c_r).astype(np.uint8)
 
-    c_l = b_arr[y, 820].astype(float)
-    c_r = b_arr[y, 1150].astype(float)
-    for x in range(830, 1110):
-        t = (x - 830) / float(1110 - 830)
+    c_l = b_arr[y, 880].astype(float)
+    c_r = b_arr[y, 1160].astype(float)
+    for x in range(890, 1115):
+        t = (x - 890) / float(1115 - 890)
         b_arr[y, x] = ((1.0 - t) * c_l + t * c_r).astype(np.uint8)
 
 b_scaled = Image.fromarray(b_arr)
 b_draw = ImageDraw.Draw(b_scaled)
 
-# BACK CENTER LOGO:
-# Erase 100% of old back logo from y=70 down to y=373 (JASICON 2026 starts at y=380)!
+# BACK CENTER LOGO & HEADER CLEANUP:
+# Erase 100% of old back logo and all red artifacts across the full width (x: 80..1160) from y=70 down to y=373!
 for y_coord in range(70, 374):
-    sample_parchment = b_scaled.getpixel((340, y_coord))
-    for x_coord in range(360, 880):
+    sample_parchment = b_scaled.getpixel((80, y_coord))
+    for x_coord in range(80, 1160):
         b_scaled.putpixel((x_coord, y_coord), sample_parchment)
 
 # Paste authentic center logo centered cleanly above JASICON 2026:

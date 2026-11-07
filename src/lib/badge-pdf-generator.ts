@@ -282,7 +282,7 @@ export async function renderBadgeBackToCanvas(
   ctx.imageSmoothingQuality = 'high';
 
   // 1. Draw Master Back Template Artwork (800 DPI, Punchholes covered)
-  const backBase = await loadCanvasImage('/branding/master-back-template.png?v=13');
+  const backBase = await loadCanvasImage('/branding/master-back-template.png?v=14');
   ctx.drawImage(backBase, 0, 0, TARGET_800_W, TARGET_800_H);
 
   // 2. Scientific Programme QR Code (slot: x: 391..839, y: 885..1265)
