@@ -151,16 +151,16 @@ export function BadgeFront({
         </h2>
       </div>
 
-      {/* 4. DYNAMIC ATTENDEE CATEGORY PILL (Optically Centered Text) */}
+      {/* 4. DYNAMIC ATTENDEE CATEGORY PILL (Optically Centered Text, Expanded Presence) */}
       <div
         style={{
           position: 'absolute',
-          top: '66.25%',
+          top: '65.90%',
           left: '50%',
           transform: 'translateX(-50%)',
-          width: '44%',
-          height: '4.4%',
-          borderRadius: '20px',
+          width: '50%',
+          height: '5.0%',
+          borderRadius: '24px',
           backgroundColor: '#064B38',
           border: `1.5px solid ${JASICON_BRAND.colors.goldPrimary}`,
           boxShadow: '0 2px 6px rgba(6, 75, 56, 0.25)',
@@ -170,15 +170,15 @@ export function BadgeFront({
           zIndex: 10,
           pointerEvents: 'none',
           boxSizing: 'border-box',
-          padding: '0 8px 1px 8px',
+          padding: '0 10px 1px 10px',
         }}
       >
         <span
           style={{
             color: '#FFFFFF',
-            fontSize: '0.78rem',
+            fontSize: '1.02rem',
             fontWeight: 800,
-            letterSpacing: '0.14em',
+            letterSpacing: '0.12em',
             textTransform: 'uppercase',
             display: 'block',
             lineHeight: 1,

@@ -204,13 +204,13 @@ export async function renderBadgeFrontToCanvas(
   ctx.fillText(displayName, sx(620), nameY);
   ctx.restore();
 
-  // 4. Dynamic Category Pill (top: 66.25%, height: 4.4%, width: 44%)
-  // Bounds: x: 347..893, y: 1158..1235 (height = 77px)
-  const pillW = sx(546);
-  const pillH = sy(77);
-  const pillX = sx(347);
-  const pillY = sy(1158);
-  const pillRadius = sx(38);
+  // 4. Dynamic Category Pill (top: 65.90%, height: 5.0%, width: 50%)
+  // Bounds: x: 310..930, y: 1152..1240 (width = 620px, height = 88px)
+  const pillW = sx(620);
+  const pillH = sy(88);
+  const pillX = sx(310);
+  const pillY = sy(1152);
+  const pillRadius = sx(44);
 
   ctx.save();
   ctx.fillStyle = '#064B38';
@@ -222,11 +222,20 @@ export async function renderBadgeFrontToCanvas(
   drawRoundedRect(ctx, pillX, pillY, pillW, pillH, pillRadius);
   ctx.stroke();
 
-  // Category Text: Perfectly centered with optical cap-height calculation
+  // Category Text: Prominently sized with optical cap-height centering and anti-overflow safety
   const categoryUpper = (attendee.category || 'DELEGATE').toUpperCase();
-  const catFontSize = sx(32);
+  let catFontSize = sx(44);
   ctx.fillStyle = '#FFFFFF';
   ctx.font = `800 ${catFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+  
+  // Guard against overflow for extra-long categories
+  const maxCatTextWidth = pillW - sx(60);
+  const measuredCatWidth = ctx.measureText(categoryUpper).width;
+  if (measuredCatWidth > maxCatTextWidth) {
+    catFontSize = Math.floor(catFontSize * (maxCatTextWidth / measuredCatWidth));
+    ctx.font = `800 ${catFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+  }
+
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   const cMetrics = ctx.measureText(categoryUpper);
