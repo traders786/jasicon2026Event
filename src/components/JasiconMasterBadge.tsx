@@ -357,7 +357,7 @@ Organizing Committee, JASICON 2026`;
               {/* Master Front Artwork Background */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/branding/master-front-card.png?v=12"
+                src="/branding/master-front-card.png?v=15"
                 alt="JASICON 2026 Master Front Card Artwork"
                 style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
               />

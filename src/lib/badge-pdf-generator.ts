@@ -118,7 +118,7 @@ export async function renderBadgeFrontToCanvas(
   ctx.imageSmoothingQuality = 'high';
 
   // 1. Load Master Background Artwork (800 DPI, Sharp 90-degree Corners, Punchholes covered)
-  const masterBase = await loadCanvasImage('/branding/master-front-card.png?v=13');
+  const masterBase = await loadCanvasImage('/branding/master-front-card.png?v=15');
   ctx.drawImage(masterBase, 0, 0, TARGET_800_W, TARGET_800_H);
 
   // 2. Photo / Initials Frame (top: 37.76%, left: 32.25%, width: 35.50%, height: 19.22%)
@@ -426,7 +426,7 @@ export async function renderInstantRegistrationFrontToCanvas(): Promise<HTMLCanv
   ctx.imageSmoothingQuality = 'high';
 
   // 1. Load Master Background Artwork (800 DPI, Punchholes covered)
-  const masterBase = await loadCanvasImage('/branding/master-front-card.png?v=13');
+  const masterBase = await loadCanvasImage('/branding/master-front-card.png?v=15');
   ctx.drawImage(masterBase, 0, 0, TARGET_800_W, TARGET_800_H);
 
   // 2. Open Elegant Marker Handwriting Panel (spacious ivory card with delicate gold border)

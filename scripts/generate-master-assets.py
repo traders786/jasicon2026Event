@@ -77,6 +77,8 @@ sy = TARGET_H / float(H_raw)
 
 # Clean dynamic fields
 f_draw.rounded_rectangle([round(147*sx), round(268*sy), round(311*sx), round(400*sy)], radius=round(18*sx), fill=(250, 248, 243, 255))
+# Wipe old photo frame bottom boundary and underline before attendee name (y: 990..1055, x: 350..890)
+f_draw.rectangle([350, 990, 890, 1055], fill=(250, 248, 243, 255))
 f_draw.rectangle([round(65*sx), round(414*sy), round(400*sx), round(450*sy)], fill=(250, 248, 243, 255))
 f_draw.rectangle([round(130*sx), round(455*sy), round(335*sx), round(492*sy)], fill=(250, 248, 243, 255))
 f_draw.rectangle([201+2, 1267+2, 580-2, 1599-2], fill=(255, 255, 255, 255))

@@ -46,7 +46,7 @@ export function BadgeFront({
       {/* 1. MASTER AUTHENTIC FRONT CARD BASE (Sharp 90-degree Rectangle, Covered Punchholes, Continuous Gold Wave) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/branding/master-front-card.png?v=13"
+        src="/branding/master-front-card.png?v=15"
         alt="JASICON 2026 Master Front Card Artwork"
         style={{
           width: '100%',
